@@ -17,6 +17,8 @@ def objective(trial):
     x = trial.suggest_uniform("x", -10, 10)
     return x**2
 
+study.optimize(objective, n_trials=500)
+
 for i in range(-num_of_waiting_trials // 2, num_of_waiting_trials // 2):
     study.enqueue_trial({"x": i})
 
