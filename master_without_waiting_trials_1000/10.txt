@@ -1,4 +1,0 @@
-関数: _pop_waiting_trial_id
-  呼び出し回数: 1000
-  合計実行時間 (tottime): 1000.000000 秒
-  累積時間 (cumtime): 0.247182 秒

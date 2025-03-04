@@ -1,8 +1,0 @@
-関数: get_all_trials
-  呼び出し回数: 1
-  合計実行時間 (tottime): 1.000000 秒
-  累積時間 (cumtime): 0.000095 秒
-関数: _pop_waiting_trial_id
-  呼び出し回数: 1
-  合計実行時間 (tottime): 1.000000 秒
-  累積時間 (cumtime): 0.000186 秒
