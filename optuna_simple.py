@@ -4,48 +4,56 @@ import time
 import sys
 import pstats
 
-args = sys.argv
+# def objective(trial):
+#     x = trial.suggest_float("x", -10, 10)
+#     return (x - 2) ** 2
 
-num_of_waiting_trials = int(args[1])
-num_of_trials = int(args[2])
-dir_name = args[3]
-file_name = args[4]
+# study = optuna.create_study()
+# trial = study.ask()
+# trial.report(0.5, step=1)
 
-study = optuna.create_study()
+# # 試行を COMPLETE にする
+# study.tell(trial, 0.1)
+
+# # 変更を試みる → エラー発生
+# trial.report(0.3, step=2)
+
+
+storage = optuna.storages.RDBStorage(
+    url="sqlite:///:memory:",
+    engine_kwargs={"pool_size": 20, "connect_args": {"timeout": 10}},
+)
+study = optuna.create_study(storage = storage)
 
 def objective(trial):
     x = trial.suggest_uniform("x", -10, 10)
     return x**2
 
-# study.optimize(objective, n_trials=500)
+study.optimize(objective, n_trials=2)
+try:
+    storage.set_trial_intermediate_value(1, 1, 100)
+except RuntimeError as e:
+    print("catches the error")
+    print(e)
 
-# for i in range(-num_of_waiting_trials // 2, num_of_waiting_trials // 2):
-#     study.enqueue_trial({"x": i})
+# print(study._study_id)
 
-def profile_objective():
-    study.optimize(objective, n_trials=num_of_trials)
+# trials = storage.get_all_trials(1, deepcopy=False)
+# print(trials[0])
+# trials[0].state = optuna.trial._state.TrialState.WAITING
+# print("=====================")
+# print(trials[0])
 
-profiller = cProfile.Profile()
-profiller.run('profile_objective()')
+# trials = study.get_trials(deepcopy=False)
+# print(trials[0])
+# trials[0].state = optuna.trial._state.TrialState.WAITING
+# print("=====================")
+# print(trials[0])
 
-profiller.dump_stats('./'+dir_name+'/'+file_name+'.prof')
+# # frozen_trial = study.best_trial
+# # print(frozen_trial)
+# # print(type(frozen_trial))
 
-# sys.stdout = open('./'+dir_name+'/'+file_name+'.txt', 'w')
-# profiller.print_stats('_pop_waiting_trial_id|get_all_trials')
-
-stats = pstats.Stats(profiller)
-function_name = "_pop_waiting_trial_id"
-function_name_1 = "get_all_trials"
-i = 0
-
-sys.stdout = open('./'+dir_name+'/'+file_name+'.txt', 'w')
-for func, data in stats.stats.items():
-    if function_name in func[2] or function_name_1 in func[2]:  # 関数名が一致するものを探す
-        ncalls, tottime, percall, cumtime, percall_cum = data
-        print(f"関数: {func[2]}")
-        print(f"  呼び出し回数: {ncalls}")
-        print(f"  合計実行時間 (tottime): {tottime:.6f} 秒")
-        print(f"  累積時間 (cumtime): {cumtime:.6f} 秒")
-        i += 1
-        if i == 2:
-            break
+# # frozen_trial.state = optuna.trial._state.TrialState.WAITING
+# # print("=====================")
+# # print(frozen_trial)
