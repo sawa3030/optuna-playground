@@ -31,7 +31,7 @@ def partial_nan_objective(trial):
         value = x ** 2 + step
         
         # Make every 3rd step return NaN
-        if step < 5 and trial_number > 2:
+        if step > 1 and trial_number > 2:
             logger.info(f"Trial {trial.number}, Step {step}: Reporting NaN")
             trial.report(float('nan'), step)
         else:
@@ -67,7 +67,7 @@ def test_patient_pruner_with_nan_values():
     # Test 2: Study with NaN intermediate values
     logger.info("\n=== Test 2: Study with NaN intermediate values ===")
     study2 = optuna.create_study(
-        pruner=optuna.pruners.PatientPruner(median_pruner, patience=5),
+        pruner=optuna.pruners.PatientPruner(median_pruner, patience=0),
         direction="minimize"
     )
     study2.optimize(partial_nan_objective, n_trials=10)
