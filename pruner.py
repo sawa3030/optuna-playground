@@ -7,20 +7,6 @@ import sys
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def nan_objective(trial):
-    """An objective function that returns NaN for every 3rd trial."""
-    trial_number = trial.number
-    
-    # Every 3rd trial returns NaN
-    if trial_number % 3 == 0:
-        logger.info(f"Trial {trial_number}: Returning NaN")
-        return float('nan')
-    else:
-        value = trial.suggest_float('x', -10, 10)
-        result = value ** 2  # Simple quadratic function
-        logger.info(f"Trial {trial_number}: Returning {result}")
-        return result
-
 def partial_nan_objective(trial):
     """An objective function where some intermediate values are NaN."""
     x = trial.suggest_float('x', -10, 10)
@@ -30,8 +16,8 @@ def partial_nan_objective(trial):
     for step in range(10):
         value = x ** 2 + step
         
-        # Make every 3rd step return NaN
-        if step > 1 and trial_number > 2:
+        # Make some values NaN based on certain conditions
+        if step > 0 and trial_number > 1:
             logger.info(f"Trial {trial.number}, Step {step}: Reporting NaN")
             trial.report(float('nan'), step)
         else:
@@ -50,49 +36,20 @@ def test_patient_pruner_with_nan_values():
     
     # Create a MedianPruner to be used as base pruner for PatientPruner
     median_pruner = optuna.pruners.MedianPruner(n_startup_trials=0, n_warmup_steps=0)
-    
-    # # Test 1: Basic study with NaN return values
-    # logger.info("\n=== Test 1: Basic study with NaN final values ===")
-    # study1 = optuna.create_study(
-    #     pruner=optuna.pruners.PatientPruner(median_pruner, patience=2),
-    #     direction="minimize"
-    # )
-    # study1.optimize(nan_objective, n_trials=10)
-    
-    # # Print results
-    # logger.info("Completed trials:")
-    # for trial in study1.trials:
-    #     logger.info(f"Trial {trial.number}: State={trial.state}, Value={trial.value}")
-    
-    # Test 2: Study with NaN intermediate values
+
     logger.info("\n=== Test 2: Study with NaN intermediate values ===")
-    study2 = optuna.create_study(
-        pruner=optuna.pruners.PatientPruner(median_pruner, patience=0),
+    study = optuna.create_study(
+        pruner=optuna.pruners.PatientPruner(median_pruner, patience=3),
         direction="minimize"
     )
-    study2.optimize(partial_nan_objective, n_trials=10)
+    study.optimize(partial_nan_objective, n_trials=10)
     
     # Print results
     logger.info("Completed trials with intermediate values:")
-    for trial in study2.trials:
+    for trial in study.trials:
         logger.info(f"Trial {trial.number}: State={trial.state}, Value={trial.value}")
         if trial.intermediate_values:
             logger.info(f"  Intermediate values: {trial.intermediate_values}")
     
-    # # Test 3: Zero patience with NaN values
-    # logger.info("\n=== Test 3: Zero patience with NaN values ===")
-    # study3 = optuna.create_study(
-    #     pruner=optuna.pruners.PatientPruner(median_pruner, patience=0),
-    #     direction="minimize"
-    # )
-    # study3.optimize(partial_nan_objective, n_trials=10)
-    
-    # Print results
-    # logger.info("Completed trials with zero patience:")
-    # for trial in study3.trials:
-    #     logger.info(f"Trial {trial.number}: State={trial.state}, Value={trial.value}")
-    #     if trial.intermediate_values:
-    #         logger.info(f"  Intermediate values: {trial.intermediate_values}")
-
 if __name__ == "__main__":
     test_patient_pruner_with_nan_values()
