@@ -1,4 +1,4 @@
-関数: _tell_with_warning
+関数: _run_trial
   呼び出し回数: 500
   合計実行時間 (tottime): 500.000000 秒
-  累積時間 (cumtime): 15.902510 秒
+  累積時間 (cumtime): 42.167272 秒
