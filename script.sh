@@ -1,14 +1,14 @@
-mkdir master_1000
-mkdir fix_1000
+mkdir master_5000
+mkdir fix_5000
 
-for i in {1..5}
+for i in {1..10}
 do
-    cd ~/pfn/optuna
-    git switch master
-    cd ~/pfn/examples
-    python tell_with_warning.py master_1000 $i
-    cd ~/pfn/optuna
-    git switch remove-the-last-get-trial-in-tell-with-warning
-    cd ~/pfn/examples
-    python tell_with_warning.py fix_1000 $i
+    # cd ~/pfn/optuna
+    # git switch master
+    # cd ~/pfn/examples
+    python test_cmaes.py master_5000 $i
+    # cd ~/pfn/optuna
+    # git switch avoid-deepcopy
+    # cd ~/pfn/examples
+    python test_cmaes.py fix_5000 $i
 done
