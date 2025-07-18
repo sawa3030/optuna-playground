@@ -122,8 +122,8 @@ def main() -> None:
     # Load the hill climbing sampler
     module = optunahub.load_module(
         package="samplers/hill_climbing",
-        repo_owner="akchaud5",
-        ref="add-hill-climbing-sampler", 
+        repo_owner="sawa3030",
+        ref="hill-sampler", 
     )
     HillClimbingSampler = module.HillClimbingSampler
 
@@ -134,7 +134,7 @@ def main() -> None:
     sampler1 = HillClimbingSampler(neighbor_size=6, max_restarts=3, seed=42)
 
     study1 = optuna.create_study(sampler=sampler1, direction="maximize")
-    study1.optimize(discrete_optimization_objective, n_trials=50)
+    study1.optimize(discrete_optimization_objective, n_trials=100)
 
     print(f"Bes2t value: {study1.best_value}")
     print(f"Best parameters: {study1.best_params}")
