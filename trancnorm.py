@@ -14,10 +14,6 @@ from optuna.samplers._tpe._erf import erf
 from optuna.samplers._tpe._truncnorm import rvs as optuna_rvs
 from scipy.stats import truncnorm as scipy_truncnorm
 
-_norm_pdf_C = math.sqrt(2 * math.pi)
-_norm_pdf_logC = math.log(_norm_pdf_C)
-_ndtri_exp_approx_C = math.sqrt(3) / math.pi
-
 def master_rvs(
     a: np.ndarray,
     b: np.ndarray,
@@ -25,36 +21,19 @@ def master_rvs(
     scale: np.ndarray | float = 1,
     random_state: np.random.RandomState | None = None,
 ) -> np.ndarray:
-    def _ndtri_exp_single(y: float) -> float:
-        if y > -sys.float_info.min:
-            return math.inf if y <= 0 else math.nan
 
-        if y > -1e-2:  # Case 1. abs(y) << 1.
-            u = -2.0 * math.log(-y)
-            x = math.sqrt(u - math.log(u))
-        elif y < -5:  # Case 2. abs(y) >> 1.
-            x = -math.sqrt(-2.0 * (y + _norm_pdf_logC))
-        else:  # Case 3. Moderate y.
-            x = -_ndtri_exp_approx_C * math.log(math.exp(-y) - 1)
-
-        for _ in range(100):
-            log_ndtr_x = _log_ndtr_single(x)
-            log_norm_pdf_x = -0.5 * x**2 - _norm_pdf_logC
-            # NOTE(nabenabe): Use exp(log_ndtr_x - log_norm_pdf_x) instead of ndtr_x / norm_pdf_x for
-            # numerical stability.
-            dx = (log_ndtr_x - y) * math.exp(log_ndtr_x - log_norm_pdf_x)
-            x -= dx
-            if abs(dx) < 1e-8 * abs(x):  # Equivalent to np.isclose with atol=0.0 and rtol=1e-8.
-                break
-
-        return x
-
-    def _ndtri_exp(y: np.ndarray) -> np.ndarray:
-        return np.frompyfunc(_ndtri_exp_single, 1, 1)(y).astype(float)
+    _norm_pdf_C = math.sqrt(2 * math.pi)
+    _norm_pdf_logC = math.log(_norm_pdf_C)
+    _ndtri_exp_approx_C = math.sqrt(3) / math.pi
 
 
     def _log_sum(log_p: np.ndarray, log_q: np.ndarray) -> np.ndarray:
         return np.logaddexp(log_p, log_q)
+
+
+    def _log_diff(log_p: np.ndarray, log_q: np.ndarray) -> np.ndarray:
+        return log_p + np.log1p(-np.exp(log_q - log_p))
+
 
     @functools.lru_cache(1000)
     def _ndtr_single(a: float) -> float:
@@ -68,7 +47,13 @@ def master_rvs(
             y = 1.0 - 0.5 * math.erfc(x)
 
         return y
-        
+
+
+    def _ndtr(a: np.ndarray) -> np.ndarray:
+        # todo(amylase): implement erfc in _erf.py and use it for big |a| inputs.
+        return 0.5 + 0.5 * erf(a / 2**0.5)
+
+
     @functools.lru_cache(1000)
     def _log_ndtr_single(a: float) -> float:
         if a > 6:
@@ -99,12 +84,10 @@ def master_rvs(
     def _log_ndtr(a: np.ndarray) -> np.ndarray:
         return np.frompyfunc(_log_ndtr_single, 1, 1)(a).astype(float)
 
-    def _log_diff(log_p: np.ndarray, log_q: np.ndarray) -> np.ndarray:
-        return log_p + np.log1p(-np.exp(log_q - log_p))
 
-    def _ndtr(a: np.ndarray) -> np.ndarray:
-        # todo(amylase): implement erfc in _erf.py and use it for big |a| inputs.
-        return 0.5 + 0.5 * erf(a / 2**0.5)
+    def _norm_logpdf(x: np.ndarray) -> np.ndarray:
+        return -(x**2) / 2.0 - _norm_pdf_logC
+
 
     def _log_gauss_mass(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         """Log of Gaussian probability mass within an interval"""
@@ -144,21 +127,78 @@ def master_rvs(
             out[case_central] = mass_case_central(a[case_central], b[case_central])
         return np.real(out)  # discard ~0j
 
+
+    def _ndtri_exp_single(y: float) -> float:
+        """
+        Use the Newton method to efficiently find the root.
+
+        `ndtri_exp(y)` returns `x` such that `y = log_ndtr(x)`, meaning that the Newton method is
+        supposed to find the root of `f(x) := log_ndtr(x) - y = 0`.
+
+        Since `df/dx = d log_ndtr(x)/dx = (ndtr(x))'/ndtr(x) = norm_pdf(x)/ndtr(x)`, the Newton update
+        is x[n + 1] := x[n] - (log_ndtr(x) - y) * ndtr(x) / norm_pdf(x).
+
+        As an initial guess, we use the Gaussian tail asymptotic approximation:
+            1 - ndtr(x) \\simeq norm_pdf(x) / x
+            --> log(norm_pdf(x) / x) = -1/2 * x**2 - 1/2 * log(2pi) - log(x)
+
+        First recall that y is a non-positive value and y = log_ndtr(inf) = 0 and
+        y = log_ndtr(-inf) = -inf.
+
+        If abs(y) is very small, x is very large, meaning that x**2 >> log(x) and
+        ndtr(x) = exp(y) \\simeq 1 + y --> -y \\simeq 1 - ndtr(x). From this, we can calculate:
+            log(1 - ndtr(x)) \\simeq log(-y) \\simeq -1/2 * x**2 - 1/2 * log(2pi) - log(x).
+        Because x**2 >> log(x), we can ignore the second and third terms, leading to:
+            log(-y) \\simeq -1/2 * x**2 --> x \\simeq sqrt(-2 log(-y)).
+        where we take the positive `x` as abs(y) becomes very small only if x >> 0.
+        The second order approximation version is sqrt(-2 log(-y) - log(-2 log(-y))).
+
+        If abs(y) is very large, we use log_ndtr(x) \\simeq -1/2 * x**2 - 1/2 * log(2pi) - log(x).
+        To solve this equation analytically, we ignore the log term, yielding:
+            log_ndtr(x) = y \\simeq -1/2 * x**2 - 1/2 * log(2pi)
+            --> y + 1/2 * log(2pi) = -1/2 * x**2 --> x**2 = -2 * (y + 1/2 * log(2pi))
+            --> x = sqrt(-2 * (y + 1/2 * log(2pi))
+
+        For the moderate y, we use Eq. (13), i.e., standard logistic CDF, in the following paper:
+
+        - `Approximating the Cumulative Distribution Function of the Normal Distribution
+        <https://jsr.isrt.ac.bd/wp-content/uploads/41n1_5.pdf>`__
+
+        The standard logistic CDF approximates ndtr(x) with:
+            exp(y) = ndtr(x) \\simeq 1 / (1 + exp(-pi * x / sqrt(3)))
+            --> exp(-y) \\simeq 1 + exp(-pi * x / sqrt(3))
+            --> log(exp(-y) - 1) \\simeq -pi * x / sqrt(3)
+            --> x \\simeq -sqrt(3) / pi * log(exp(-y) - 1).
+        """
+        if y > -sys.float_info.min:
+            return math.inf if y <= 0 else math.nan
+
+        if y > -1e-2:  # Case 1. abs(y) << 1.
+            u = -2.0 * math.log(-y)
+            x = math.sqrt(u - math.log(u))
+        elif y < -5:  # Case 2. abs(y) >> 1.
+            x = -math.sqrt(-2.0 * (y + _norm_pdf_logC))
+        else:  # Case 3. Moderate y.
+            x = -_ndtri_exp_approx_C * math.log(math.exp(-y) - 1)
+
+        for _ in range(100):
+            log_ndtr_x = _log_ndtr_single(x)
+            log_norm_pdf_x = -0.5 * x**2 - _norm_pdf_logC
+            # NOTE(nabenabe): Use exp(log_ndtr_x - log_norm_pdf_x) instead of ndtr_x / norm_pdf_x for
+            # numerical stability.
+            dx = (log_ndtr_x - y) * math.exp(log_ndtr_x - log_norm_pdf_x)
+            x -= dx
+            if abs(dx) < 1e-8 * abs(x):  # Equivalent to np.isclose with atol=0.0 and rtol=1e-8.
+                break
+
+        return x
+
+
+    def _ndtri_exp(y: np.ndarray) -> np.ndarray:
+        return np.frompyfunc(_ndtri_exp_single, 1, 1)(y).astype(float)
+
+
     def ppf(q: np.ndarray, a: np.ndarray | float, b: np.ndarray | float) -> np.ndarray:
-        """
-        Compute the percent point function (inverse of cdf) at q of the given truncated Gaussian.
-
-        Namely, this function returns the value `c` such that:
-            q = \\int_{a}^{c} f(x) dx
-
-        where `f(x)` is the probability density function of the truncated normal distribution with
-        the lower limit `a` and the upper limit `b`.
-
-        More precisely, this function returns `c` such that:
-            ndtr(c) = ndtr(a) + q * (ndtr(b) - ndtr(a))
-        for the case where `a < 0`, i.e., `case_left`. For `case_right`, we flip the sign for the
-        better numerical stability.
-        """
         q, a, b = np.atleast_1d(q, a, b)
         q, a, b = np.broadcast_arrays(q, a, b)
 
@@ -172,7 +212,7 @@ def master_rvs(
         def ppf_right(q: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.ndarray:
             log_Phi_x = _log_sum(_log_ndtr(-b), np.log1p(-q) + _log_gauss_mass(a, b))
             return -_ndtri_exp(log_Phi_x)
-                
+
         out = np.empty_like(q)
 
         q_left = q[case_left]
@@ -212,35 +252,25 @@ for i, size in enumerate(size_list):
     print(f"{size=}")
     start = time.time()
     for j in range(n_repeats):
-        # a=(d.low - active_mus) / active_sigmas,
-        # b=(d.high - active_mus) / active_sigmas,
-        # loc=active_mus,
-        # scale=active_sigmas,
-        # random_state=rng,
-        rnd_a = rng.uniform(-2, 0, size=(100, size // 100))
-        rnd_b = rng.uniform(0, 2, size=(100, size // 100))
-        rnd_loc = rng.normal(0, 1, size=(100, size // 100))
-        rnd_scale = rng.uniform(0.1, 2, size=(100, size // 100))
+        rnd_low = rng.uniform(-2, 0, size=(size))
+        rnd_high = rng.uniform(0, 2, size=(size))
+        rnd_loc = rng.normal(0, 1, size=(size))
+        rnd_scale = rng.uniform(0.1, 2, size=(size))
 
-        # op = optuna_rvs((rnd_a - rnd_loc) / rnd_scale, (rnd_b - rnd_loc) / rnd_scale, rnd_loc, rnd_scale, rng)
-        # mas = scipy_truncnorm.rvs(a=(rnd_a - rnd_loc) / rnd_scale, b=(rnd_b - rnd_loc) / rnd_scale, loc=rnd_loc, scale=rnd_scale, random_state=rng)
-
-        # for k in range(100):
-        #     print(f"{k=}, {op[k, 0]=}, {mas[k, 0]=}")
-
-        # assert np.allclose(optuna_rvs(
-        #     (rnd_a - rnd_loc) / rnd_scale, (rnd_b - rnd_loc) / rnd_scale, rnd_loc, rnd_scale, rng
-        # ), scipy_truncnorm.rvs(
-        #     a=(rnd_a - rnd_loc) / rnd_scale, b=(rnd_b - rnd_loc) / rnd_scale, loc=rnd_loc, scale=rnd_scale, random_state=rng
-        # ))
         start = time.time()
-        res = optuna_rvs((rnd_a - rnd_loc) / rnd_scale, (rnd_b - rnd_loc) / rnd_scale, rnd_loc, rnd_scale, rng)
+        res = optuna_rvs((rnd_low - rnd_loc) / rnd_scale, (rnd_high - rnd_loc) / rnd_scale, rnd_loc, rnd_scale, rng)
         runtimes_this_pr[i, j] = time.time() - start
         start = time.time()
-        res = master_rvs((rnd_a - rnd_loc) / rnd_scale, (rnd_b - rnd_loc) / rnd_scale, rnd_loc, rnd_scale, rng)
+        res = master_rvs((rnd_low - rnd_loc) / rnd_scale, (rnd_high - rnd_loc) / rnd_scale, rnd_loc, rnd_scale, rng)
         runtimes_master[i, j] = time.time() - start
         start = time.time()
-        res = scipy_truncnorm.rvs(a=(rnd_a - rnd_loc) / rnd_scale, b=(rnd_b - rnd_loc) / rnd_scale, loc=rnd_loc, scale=rnd_scale, random_state=rng)
+        res = scipy_truncnorm.rvs(
+            a=(rnd_low - rnd_loc) / rnd_scale, 
+            b=(rnd_high - rnd_loc) / rnd_scale, 
+            loc=rnd_loc, 
+            scale=rnd_scale, 
+            random_state=rng
+        )
         runtimes_scipy[i, j] = time.time() - start
 
 runtimes_this_pr *= 1000
@@ -261,16 +291,6 @@ means = np.mean(runtimes_master, axis=-1)
 stderrs = np.std(runtimes_master, axis=-1) / np.sqrt(n_repeats)
 ax.plot(size_list, means, color="blue", ls="dashed", label="Master")
 ax.fill_between(size_list, means - stderrs, means + stderrs, color="blue", alpha=0.2)
-
-# means = np.mean(runtimes_math, axis=-1)
-# stderrs = np.std(runtimes_math, axis=-1) / np.sqrt(n_repeats)
-# ax.plot(size_list, means, color="black", ls="dotted", label="Math", marker="s", markevery=markevery)
-# ax.fill_between(size_list, means - stderrs, means + stderrs, color="black", alpha=0.2)
-
-# means = np.mean(runtimes_numpy, axis=-1)
-# stderrs = np.std(runtimes_numpy, axis=-1) / np.sqrt(n_repeats)
-# ax.plot(size_list, means, color="gray", ls="dotted", label="NumPy", marker="^", markevery=markevery)
-# ax.fill_between(size_list, means - stderrs, means + stderrs, color="gray", alpha=0.2)
 
 means = np.mean(runtimes_scipy, axis=-1)
 stderrs = np.std(runtimes_scipy, axis=-1) / np.sqrt(n_repeats)
