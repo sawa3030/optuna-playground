@@ -3,7 +3,6 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-# 計測対象のサイズ
 sizes = [1000, 10000, 100000, 1000000]
 n_repeats = 10
 
@@ -15,28 +14,29 @@ for n in sizes:
     math_total = 0.0
 
     for _ in range(n_repeats):
-        a = np.random.rand(n)
-        b = ["max" if np.random.rand() > 0.5 else "min" for _ in range(n)]
+        a = np.random.rand(n, 3)
+        a = a[np.argsort(a[:, 0])]
+        b = np.array([1, 1, 1])
 
-        # NumPyベース
+        # use NumPy
         start = time.time()
-        a *= np.array([-1.0 if x == "max" else 1.0 for x in b])
+        product = np.prod(b - a, axis=-1)
         end = time.time()
         numpy_total += (end - start)
+        print("product with np.array:", product)
 
-        a = np.random.rand(n)
-        b = ["max" if np.random.rand() > 0.5 else "min" for _ in range(n)]
-
-        # Pythonリストベース
+        # use Python loop
         start = time.time()
-        a *= [-1.0 if x == "max" else 1.0 for x in b]
+        product = 1.0
+        for a_item, b_item in zip(a, b):
+            product *= b_item - a_item
         end = time.time()
         math_total += (end - start)
+        print("product with list:", product)
 
     numpy_times.append(numpy_total / n_repeats)
     math_times.append(math_total / n_repeats)
 
-# プロット
 plt.figure()
 plt.plot(sizes, numpy_times, label="with np.array()", marker='o')
 plt.plot(sizes, math_times, label="with list", marker='s')

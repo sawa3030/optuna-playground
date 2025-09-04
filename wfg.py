@@ -171,13 +171,21 @@ def pr_compute_hv(sorted_loss_vals: np.ndarray, reference_point: np.ndarray) -> 
 # sorted_loss_vals = np.array([[-1.1, 2], [3., 4], [5, 6]])
 # reference_point = np.array([10, 10])
 
-# from optuna._hypervolume.wfg import _compute_hv
-# import numpy as np
+from optuna._hypervolume.wfg import _compute_hv
+import numpy as np
 np.random.seed(42)
-sorted_loss_vals = np.random.rand(100, 2) * 5
-sorted_loss_vals = sorted_loss_vals[np.argsort(sorted_loss_vals[:, 0])]
-print("sorted_loss_vals", sorted_loss_vals)
-reference_point = np.array([10, 10])
-# print("Master HV:", _compute_hv(sorted_loss_vals, reference_point))
-print("Master HV:", master_compute_hv(sorted_loss_vals, reference_point))
-print("PR HV:", pr_compute_hv(sorted_loss_vals, reference_point))
+n = [1, 2, 3, 4, 10, 100]
+n_objectives = [2, 3, 4]
+for d in n_objectives:
+    for n_ in n:
+        loss_vals = np.random.rand(n_, d)
+        sorted_loss_vals = loss_vals[np.argsort(loss_vals[:, 0])]
+        reference_point = np.ones(d)
+        print(f"n={n_}, d={d}, result:", _compute_hv(sorted_loss_vals, reference_point))
+# loss_vals = np.random.rand(100, 2)
+# sorted_loss_vals = loss_vals[np.argsort(loss_vals[:, 0])]
+# print("sorted_loss_vals", sorted_loss_vals)
+# reference_point = np.array([1, 1])
+# print("result:", _compute_hv(sorted_loss_vals, reference_point))
+# print("Master HV:", master_compute_hv(sorted_loss_vals, reference_point))
+# print("PR HV:", pr_compute_hv(sorted_loss_vals, reference_point))
