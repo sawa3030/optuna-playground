@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import polars as pl
 
 
-# fp = font_manager.FontProperties(fname="/usr/share/fonts/TTF/Times.TTF")
 fp = font_manager.FontProperties(family="serif")
 
 
@@ -17,9 +16,6 @@ def _prepare_data(branch: str) -> pl.DataFrame:
         [
             pl.col("time").mean().alias("time_mean"),
             (pl.col("time").std() / pl.count("time").cast(pl.Float64).sqrt()).alias("time_se"),
-            # pl.col("after").mean().alias("after_mean"),
-            # (pl.col("after").std() / pl.count("after").cast(pl.Float64).sqrt()).alias("after_se"),
-
         ]
     ).sort("length")
 
@@ -57,7 +53,6 @@ def plot_results(
         loc="upper left",
         fontsize=12,
         prop=(
-            # font_manager.FontProperties(fname="/usr/share/fonts/TTF/Times.TTF", size=12)
             font_manager.FontProperties(family="serif", size=12)
         ),
     )
@@ -112,7 +107,7 @@ def main(args: Namespace) -> None:
             markers=maekers,
             marker_sizes=marker_sizes,
             xlabel="Log file length",
-            ylabel="Memory usage / MB",
+            ylabel="Runtime / sec",
             figsize=(6, 4),
         )
         fig.savefig(f"results/memory_apply_logs_{phase}.png", dpi=300, bbox_inches="tight")
