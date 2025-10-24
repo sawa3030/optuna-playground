@@ -12,7 +12,7 @@ import warnings
 from plotly.io import show
 
 # always show the warnings
-warnings.simplefilter("always")
+# warnings.simplefilter("always")
 
 def objective(trial: optuna.Trial) -> float:
     x = trial.suggest_float("x", -5, 5)
@@ -20,25 +20,32 @@ def objective(trial: optuna.Trial) -> float:
     return x**2 + y**2
 
 bbob = optunahub.load_module("benchmarks/bbob")
-sphere2d = bbob.Problem(function_id=1, dimension=2, instance_id=1)
-# storage = optuna.storages.get_storage("sqlite:///cmaes_benchmark.db")
+sphere2d = bbob.Problem(function_id=22, dimension=10, instance_id=1)
 storage = optuna.storages.InMemoryStorage()
 
 package_name = "samplers/turbosampler"
 sampler = optunahub.load_local_module(
     package="samplers/turbo",
     registry_root="../optunahub-registry/package/",  # Path to the root of the optunahub-registry.
-).TuRBOSampler(seed=0)
+).TuRBOSampler(seed=1, failure_tolerance=10)
+# sampler = optuna.samplers.GPSampler(seed=1)
 
-study = optuna.create_study(
+study1 = optuna.create_study(
+    study_name="turbo_sampler",
     sampler=sampler,
-    # directions=sphere2d.directions,
-    # study_name="turbo_study",
+    directions=sphere2d.directions,
     storage=storage,
-    # load_if_exists=False,
     )
-study.optimize(objective, n_trials=100)
-print(study.best_trials)
+study1.optimize(sphere2d, n_trials=500)
 
-fig = optuna.visualization.plot_optimization_history(study)
+study2  = optuna.create_study(
+    study_name="gp_sampler",
+    sampler=optuna.samplers.GPSampler(seed=1),
+    directions=sphere2d.directions,
+    storage=storage,
+    )
+study2.optimize(sphere2d, n_trials=500)
+
+fig = optuna.visualization.plot_optimization_history([study1, study2])
 fig.write_html("history_turbo.html", auto_open=True)
+# fig.write_html("history_gp.html", auto_open=True)
