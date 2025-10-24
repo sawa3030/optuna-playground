@@ -10,6 +10,7 @@ import optuna
 import optunahub
 import warnings
 from plotly.io import show
+import time
 
 # always show the warnings
 # warnings.simplefilter("always")
@@ -31,7 +32,9 @@ module = optunahub.load_local_module(
 # sampler = optuna.samplers.GPSampler(seed=1)
 
 turbo_best_values = []
+turbo_time = []
 gp_best_values = []
+gp_time = []
 
 for i in range(10):
     sampler = module.TuRBOSampler(seed=i, failure_tolerance=10)
@@ -41,17 +44,20 @@ for i in range(10):
         directions=sphere2d.directions,
         storage=storage,
         )
+    start_time = time.time()
     study1.optimize(sphere2d, n_trials=200)
     turbo_best_values.append(study1.best_value)
+    turbo_time.append(time.time() - start_time)
 
-for i in range(10):
     study2 = optuna.create_study(
         # study_name="gp_sampler",
         sampler=optuna.samplers.GPSampler(seed=i),
         directions=sphere2d.directions,
         storage=storage,
     )
+    start_time = time.time()
     study2.optimize(sphere2d, n_trials=200)
+    gp_time.append(time.time() - start_time)
     gp_best_values.append(study2.best_value)
 
 print("TuRBO Sampler best values:", turbo_best_values)
