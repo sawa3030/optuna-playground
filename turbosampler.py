@@ -36,7 +36,7 @@ turbo_time = []
 gp_best_values = []
 gp_time = []
 
-for i in range(10):
+for i in range(1):
     sampler = module.TuRBOSampler(seed=i, failure_tolerance=10)
     study1 = optuna.create_study(
         # study_name="turbo_sampler",
@@ -49,16 +49,16 @@ for i in range(10):
     turbo_best_values.append(study1.best_value)
     turbo_time.append(time.time() - start_time)
 
-    study2 = optuna.create_study(
-        # study_name="gp_sampler",
-        sampler=optuna.samplers.GPSampler(seed=i),
-        directions=sphere2d.directions,
-        storage=storage,
-    )
-    start_time = time.time()
-    study2.optimize(sphere2d, n_trials=200)
-    gp_time.append(time.time() - start_time)
-    gp_best_values.append(study2.best_value)
+    # study2 = optuna.create_study(
+    #     # study_name="gp_sampler",
+    #     sampler=optuna.samplers.GPSampler(seed=i),
+    #     directions=sphere2d.directions,
+    #     storage=storage,
+    # )
+    # start_time = time.time()
+    # study2.optimize(sphere2d, n_trials=200)
+    # gp_time.append(time.time() - start_time)
+    # gp_best_values.append(study2.best_value)
 
 print("TuRBO Sampler best values:", turbo_best_values)
 print("GP Sampler best values:", gp_best_values)
@@ -71,6 +71,6 @@ print("GP Sampler mean best value:", np.mean(gp_best_values))
 print("GP Sampler std of best values:", np.std(gp_best_values))
 
 
-# fig = optuna.visualization.plot_optimization_history([study1, study2])
-# fig.write_html("history_turbo.html", auto_open=True)
+fig = optuna.visualization.plot_optimization_history(study1)
+fig.write_html("history_turbo.html", auto_open=True)
 # fig.write_html("history_gp.html", auto_open=True)
