@@ -31,7 +31,7 @@ module = optunahub.load_local_module(
     registry_root="../optunahub-registry/package/",  # Path to the root of the optunahub-registry.
 )
 
-sampler = module.TuRBOSampler(seed=42)
+sampler = module.TuRBOSampler(seed=42, n_startup_trials=4, n_trust_region=1)
 study = optuna.create_study(
     # study_name="turbo_sampler",
     sampler=sampler,
@@ -39,9 +39,9 @@ study = optuna.create_study(
     directions=sphere2d.directions,
     storage=storage,
     )
-study.optimize(sphere2d, n_trials=100)
+study.optimize(sphere2d, n_trials=20)
 
-for i in range(20):
+for i in range(50):
     study.optimize(sphere2d, n_trials=1)
     fig = plot_contour(study)   
 
