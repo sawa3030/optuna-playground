@@ -19,10 +19,10 @@ def objective(trial: optuna.Trial) -> float:
     x2 = trial.suggest_float("x2", -5, 5)
     return objective_function([x1,x2])
 
-# safe_seeds = [[-2, -2], [-1, 1], [-1, 3]]
-# safe_seeds = [[-2.0, -2.0], [-1.0, 1.0], [-0.5, 3.0]]
+safe_seeds = [[-2, -2], [-1, 1], [-1, 3]]
+safe_seeds = [[-2.0, -2.0], [-1.0, 1.0], [-0.5, 3.0]]
 safe_seeds = []
-# safe_seeds_temp = [[-2.0, -2.0], [-1.0, 1.0], [-0.5, 3.0]]
+safe_seeds_temp = [[-2.0, -2.0], [-1.0, 1.0], [-0.5, 3.0]]
 seeds_evals = [objective_function(x) for x in safe_seeds]
 seeds_safe_evals = [[safe_function(x)] for x in safe_seeds]
 safety_threshold = [0.0]

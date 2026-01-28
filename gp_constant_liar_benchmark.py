@@ -1,23 +1,5 @@
 import optuna
 import math
-from plotly.io import show
-import optunahub
-import cocoex as ex
-
-# def objective(trial):
-#     x1 = trial.suggest_float("x1", -5, 10)
-#     x2 = trial.suggest_float("x2", 0, 15)
-#     return x1**2 + x2
-
-# def constraints(trial: optuna.trial.FrozenTrial) -> tuple[float]:
-#     c1 = 10 - trial.params["x1"] - trial.params["x2"]
-#     c2 = trial.params["x1"] - 5
-#     return (c1, c2)
-
-# study = optuna.create_study(sampler=optuna.samplers.GPSampler(constant_liar=True, constraints_func=constraints), directions=["minimize", "maximize"])
-# study = optuna.create_study(sampler=optuna.samplers.GPSampler(seed=42, constant_liar=True))
-# study = optuna.create_study(sampler=optuna.samplers.TPESampler(constant_liar=True))
-# study.optimize(objective, n_trials=20)
 
 a = 1
 b = 5.1 / (4 * math.pi * math.pi)
@@ -26,55 +8,28 @@ r = 6
 s = 10
 t = 1 / (8 * math.pi)
 
-problem=ex.Suite("bbob", "", "").get_problem_by_function_dimension_instance(
-    function=22,
-    dimension=2, 
-    instance=1
-)
-
-def objective(trial):
-    x1 = trial.suggest_float("x1", -5, 10)
-    x2 = trial.suggest_float("x2", 0, 15)
-    return a*(x2 - b*x1**2 + c*x1 - r)**2 + s*(1 - t)*math.cos(x1) + s
-
-repeat_times = 1
-batch_size = 10
-batch_repeats = 5
-objective_value_worst = [[] for _ in range(repeat_times)]
-objective_value_best = [[] for _ in range(repeat_times)]
-objective_value_average = [[] for _ in range(repeat_times)]
-
-objective_value_worst_best = [[] for _ in range(repeat_times)]
-objective_value_best_best = [[] for _ in range(repeat_times)]
-objective_value_average_best = [[] for _ in range(repeat_times)]
-
-for seed in range(repeat_times):
-    study_worst = optuna.create_study(sampler=optuna.samplers.GPSampler(seed=seed, constant_liar="average"), study_name="constant_liar_worst", directions=["minimize"])
-    # study_worst.optimize(objective, n_trials=10)
-    for j in range(batch_repeats):
+for constant_liar in [None, "worst", "best", "mean"]:
+    study = optuna.create_study(sampler=optuna.samplers.GPSampler(seed=1, constant_liar=constant_liar), directions=["minimize"])
+    for j in range(5):
         trials = []
         x1s = []
         x2s = []
-        for i in range(batch_size):
-            trial = study_worst.ask()
+        for i in range(10):
+            trial = study.ask()
             x1 = trial.suggest_float("x1", -5, 10)
             x2 = trial.suggest_float("x2", 0, 15)
-            # x1 = trial.suggest_float("x1", problem.lower_bounds[0], problem.upper_bounds[0])
-            # x2 = trial.suggest_float("x2", problem.lower_bounds[1], problem.upper_bounds[1])
             trials.append(trial)
             x1s.append(x1)
             x2s.append(x2)
             print(f"Trial {i}: x1={x1}, x2={x2}")
 
-        for i in range (batch_size):
+        for i in range (10):
+            # Branin-Hoo function is used as objective function
             objective_value = a*(x2s[i] - b*x1s[i]**2 + c*x1s[i] - r)**2 + s*(1 - t)*math.cos(x1s[i]) + s
-            # objective_value = problem([x1s[i], x2s[i]])
-            study_worst.tell(trials[i], [objective_value])
+            study.tell(trials[i], [objective_value])
             print(f"Trial {i}: objective_value={objective_value}")
-            objective_value_worst[seed].append(objective_value)
-            objective_value_worst_best[seed].append(study_worst.best_value)
-    fig = optuna.visualization.plot_contour(study_worst, params=["x1", "x2"], target_name="Objective Value")
-    fig.write_image("constant_liar_mean.png")  
+    fig = optuna.visualization.plot_contour(study, params=["x1", "x2"])
+    fig.write_image(f"constant_liar_{constant_liar}.png")  
 
     # study_best = optuna.create_study(sampler=optuna.samplers.GPSampler(seed=seed, constant_liar="best"), study_name="constant_liar_best", directions=["minimize"])
     # # study_best.optimize(objective, n_trials=10)

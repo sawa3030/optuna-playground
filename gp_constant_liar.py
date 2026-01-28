@@ -1,6 +1,7 @@
 import optuna
 from optuna.importance import PedAnovaImportanceEvaluator
 import warnings
+import cProfile
 
 warnings.simplefilter("always")
 
@@ -19,9 +20,10 @@ study = optuna.create_study(sampler=optuna.samplers.GPSampler(constant_liar="wor
 # study = optuna.create_study(sampler=optuna.samplers.GPSampler())
 # study = optuna.create_study(sampler=optuna.samplers.TPESampler(constant_liar=True))
 study.optimize(objective, n_trials=20)
+# cProfile.run("study.optimize(objective, n_trials=1)", filename="output.stats")
 
 
-for j in range(1):
+for j in range(3):
     trials = []
     for i in range(5):
         trial = study.ask()
