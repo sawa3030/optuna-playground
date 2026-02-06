@@ -1,114 +1,259 @@
-import optuna
+from __future__ import annotations
+
+import csv
+import json
 import math
+import time
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
-a = 1
-b = 5.1 / (4 * math.pi * math.pi)
-c = 5 / math.pi
-r = 6
-s = 10
-t = 1 / (8 * math.pi)
+import numpy as np
+import optuna
+import optunahub
+from optuna.distributions import (
+    BaseDistribution,
+    FloatDistribution,
+    IntDistribution,
+    CategoricalDistribution,
+)
 
-for constant_liar in [None, "worst", "best", "mean"]:
-    study = optuna.create_study(sampler=optuna.samplers.GPSampler(seed=1, constant_liar=constant_liar), directions=["minimize"])
-    for j in range(5):
-        trials = []
-        x1s = []
-        x2s = []
-        for i in range(10):
-            trial = study.ask()
-            x1 = trial.suggest_float("x1", -5, 10)
-            x2 = trial.suggest_float("x2", 0, 15)
-            trials.append(trial)
-            x1s.append(x1)
-            x2s.append(x2)
-            print(f"Trial {i}: x1={x1}, x2={x2}")
+N_REPEATS = 2
+N_TRIALS_LIST = [25, 50, 75, 100]
+BATCH_SIZES = [5, 10, 50]
+CONSTANT_LIAR_LIST: list[Optional[str]] = [None, "best", "worst", "mean"]
 
-        for i in range (10):
-            # Branin-Hoo function is used as objective function
-            objective_value = a*(x2s[i] - b*x1s[i]**2 + c*x1s[i] - r)**2 + s*(1 - t)*math.cos(x1s[i]) + s
-            study.tell(trials[i], [objective_value])
-            print(f"Trial {i}: objective_value={objective_value}")
-    fig = optuna.visualization.plot_contour(study, params=["x1", "x2"])
-    fig.write_image(f"constant_liar_{constant_liar}.png")  
+BBOB_DIMS = [2]
+BBOB_FUNCTION_IDS = [1,6,10,15,20]
 
-    # study_best = optuna.create_study(sampler=optuna.samplers.GPSampler(seed=seed, constant_liar="best"), study_name="constant_liar_best", directions=["minimize"])
-    # # study_best.optimize(objective, n_trials=10)
-    # for j in range(batch_repeats):
-    #     trials = []
-    #     x1s = []
-    #     x2s = []
-    #     for i in range(batch_size):
-    #         trial = study_best.ask()
-    #         # x1 = trial.suggest_float("x1", -5, 10)
-    #         # x2 = trial.suggest_float("x2", 0, 15)
-    #         x1 = trial.suggest_float("x1", problem.lower_bounds[0], problem.upper_bounds[0])
-    #         x2 = trial.suggest_float("x2", problem.lower_bounds[1], problem.upper_bounds[1])
-    #         trials.append(trial)
-    #         x1s.append(x1)
-    #         x2s.append(x2)
-    #         print(f"Trial {i}: x1={x1}, x2={x2}")
+HPOBENCH_DATASET_IDS = [0, 1, 2]
 
-    #     for i in range (batch_size):
-    #         # objective_value = a*(x2s[i] - b*x1s[i]**2 + c*x1s[i] - r)**2 + s*(1 - t)*math.cos(x1s[i]) + s
-    #         objective_value = problem([x1s[i], x2s[i]])
-    #         study_best.tell(trials[i], [objective_value])
-    #         print(f"Trial {i}: objective_value={objective_value}")
-    #         objective_value_best[seed].append(objective_value)
-    #         objective_value_best_best[seed].append(study_best.best_value)
+# N_REPEATS = 1
+# N_TRIALS_LIST = [25, 50, 75, 100]
+# BATCH_SIZES = [5, 10]
+# CONSTANT_LIAR_LIST: list[Optional[str]] = [None, "best", "worst", "mean"]
 
-    # study_average = optuna.create_study(sampler=optuna.samplers.GPSampler(seed=seed, constant_liar="average"), study_name="constant_liar_average", directions=["minimize"])
-    # # study_average.optimize(objective, n_trials=10)
-    # for j in range(batch_repeats):
-    #     trials = []
-    #     x1s = []
-    #     x2s = []
-    #     for i in range(batch_size):
-    #         trial = study_average.ask()
-    #         # x1 = trial.suggest_float("x1", -5, 10)
-    #         # x2 = trial.suggest_float("x2", 0, 15)
-    #         x1 = trial.suggest_float("x1", problem.lower_bounds[0], problem.upper_bounds[0])
-    #         x2 = trial.suggest_float("x2", problem.lower_bounds[1], problem.upper_bounds[1])
-    #         trials.append(trial)
-    #         x1s.append(x1)
-    #         x2s.append(x2)
-    #         print(f"Trial {i}: x1={x1}, x2={x2}")
+# BBOB_DIMS = [2]
+# BBOB_FUNCTION_IDS = [1]
+# HPOBENCH_DATASET_IDS = [0]
 
-    #     for i in range (batch_size):
-    #         # objective_value = a*(x2s[i] - b*x1s[i]**2 + c*x1s[i] - r)**2 + s*(1 - t)*math.cos(x1s[i]) + s
-    #         objective_value = problem([x1s[i], x2s[i]])
-    #         study_average.tell(trials[i], [objective_value])
-    #         print(f"Trial {i}: objective_value={objective_value}")
-    #         objective_value_average[seed].append(objective_value)
-    #         objective_value_average_best[seed].append(study_average.best_value)
+# Output
+OUT_DIR = Path("benchmark_results")
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+DETAILS_JSONL = OUT_DIR / "details.jsonl"
+SUMMARY_CSV = OUT_DIR / "summary.csv"
 
-# get the average and plot the optimization history
-# average_worst = [sum(x)/len(x) for x in zip(*objective_value_worst)]
-# average_best = [sum(x)/len(x) for x in zip(*objective_value_best)]
-# average_average = [sum(x)/len(x) for x in zip(*objective_value_average)] 
-# average_worst_best = [sum(x)/len(x) for x in zip(*objective_value_worst_best)]
-# average_best_best = [sum(x)/len(x) for x in zip(*objective_value_best_best)]
-# average_average_best = [sum(x)/len(x) for x in zip(*objective_value_average_best)]
 
-# import plotly.graph_objects as go
-# fig = go.Figure()
-# fig.add_trace(go.Scatter(y=average_worst, mode='markers', name='Worst'))
-# fig.add_trace(go.Scatter(y=average_best, mode='markers', name='Best'))
-# fig.add_trace(go.Scatter(y=average_average, mode='markers', name='Average'))
+# -----------------------------
+# Helpers: suggest params from distributions
+# -----------------------------
+def suggest_from_distribution(trial: optuna.Trial, name: str, dist: BaseDistribution) -> Any:
+    """Suggest a parameter based on Optuna distribution object."""
+    if isinstance(dist, FloatDistribution):
+        # FloatDistribution has low/high and optional log/step.
+        return trial.suggest_float(name, dist.low, dist.high, log=dist.log, step=dist.step)
+    if isinstance(dist, IntDistribution):
+        return trial.suggest_int(name, dist.low, dist.high, log=dist.log, step=dist.step)
+    if isinstance(dist, CategoricalDistribution):
+        return trial.suggest_categorical(name, dist.choices)
+    raise TypeError(f"Unsupported distribution type for {name}: {type(dist)}")
 
-# fig.add_trace(go.Scatter(y=average_worst_best, mode='lines', name='Worst Best Value'))
-# fig.add_trace(go.Scatter(y=average_best_best, mode='lines', name='Best Best Value'))
-# fig.add_trace(go.Scatter(y=average_average_best, mode='lines', name='Average Best Value'))
 
-# fig.update_layout(title='GP Constant Liar Strategy Comparison',
-#                    xaxis_title='Trial',
-#                    yaxis_title='Objective Value')
-# fig.write_image("gp_constant_liar_comparison.png")  
+def suggest_params(trial: optuna.Trial, search_space: Dict[str, BaseDistribution]) -> Dict[str, Any]:
+    return {name: suggest_from_distribution(trial, name, dist) for name, dist in search_space.items()}
 
-# fig = optuna.visualization.plot_optimization_history([study_worst, study_best, study_average], target_name="Objective Value")
-# fig.write_image(f"gp_constant_liar_mean.png")
 
-# def objective1(trial):
-#     a1 = trial.suggest_float("a1", -10, 10)
-#     a2 = trial.suggest_float("a2", -10, 10)
-#     return a1 + a2 / 1000
-# study.optimize(objective1, n_trials=20)
+def run_batched_study(
+    problem: Any,
+    sampler: optuna.samplers.BaseSampler,
+    n_trials: int,
+    batch_size: int,
+    seed: int,
+) -> float:
+    if n_trials < batch_size:
+        raise ValueError("n_trials must be >= batch_size")
+
+    study = optuna.create_study(directions=problem.directions, sampler=sampler)
+
+    completed = 0
+    while completed < n_trials:
+        current_batch = min(batch_size, n_trials - completed)
+
+        trial_numbers: list[int] = []
+        params_batch: list[dict[str, Any]] = []
+
+        for _ in range(current_batch):
+            t = study.ask()
+            trial_numbers.append(t.number)
+
+            params = suggest_params(t, problem.search_space)
+            params_batch.append(params)
+
+        values: list[Union[float, Sequence[float]]] = []
+        for params in params_batch:
+            v = problem.evaluate(params)
+            values.append(v)
+
+        for tn, v in zip(trial_numbers, values):
+            study.tell(tn, v)
+
+        completed += current_batch
+
+    return study.best_trial.value
+
+
+# -----------------------------
+# Benchmark definitions
+# -----------------------------
+def iter_bbob_problems() -> Iterable[Tuple[str, Any]]:
+    bbob = optunahub.load_module("benchmarks/bbob")
+    for d in BBOB_DIMS:
+        for function_id in BBOB_FUNCTION_IDS:
+            p = bbob.Problem(function_id=function_id, dimension=d)
+            yield (f"bbob:function{function_id}:dim{d}", p)
+
+
+def iter_hpobench_problems() -> Iterable[Tuple[str, Any]]:
+    hpobench = optunahub.load_module("benchmarks/hpobench_nn")
+    for dataset_id in HPOBENCH_DATASET_IDS:
+        p = hpobench.Problem(dataset_id=dataset_id)
+        yield (f"hpobench_nn:dataset{dataset_id}", p)
+
+
+# -----------------------------
+# Result records
+# -----------------------------
+@dataclass
+class DetailRecord:
+    benchmark: str
+    constant_liar: Optional[str]
+    n_trials: int
+    batch_size: int
+    repeat: int
+    seed: int
+    best_value: float
+    elapsed_sec: float
+
+
+@dataclass
+class SummaryRecord:
+    benchmark: str
+    constant_liar: Optional[str]
+    n_trials: int
+    batch_size: int
+    n_repeats: int
+    best_value_mean: float
+    best_value_std: float
+
+
+def append_jsonl(path: Path, rec: dict) -> None:
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+# -----------------------------
+# Main benchmarking loop
+# -----------------------------
+def main() -> None:
+    # reset outputs
+    DETAILS_JSONL.write_text("", encoding="utf-8")
+    SUMMARY_CSV.write_text("", encoding="utf-8")
+
+    # CSV header
+    with SUMMARY_CSV.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "benchmark",
+                "constant_liar",
+                "n_trials",
+                "batch_size",
+                "n_repeats",
+                "best_value_mean",
+                "best_value_std",
+            ],
+        )
+        writer.writeheader()
+
+    all_problem_iters = list(iter_bbob_problems()) + list(iter_hpobench_problems())
+
+    for benchmark_name, problem in all_problem_iters:
+        for n_trials in N_TRIALS_LIST:
+            for batch_size in BATCH_SIZES:
+                if n_trials < batch_size:
+                    continue
+
+                for constant_liar in CONSTANT_LIAR_LIST:
+                    best_vals: list[float] = []
+
+                    for r in range(N_REPEATS):
+                        seed = 1000 * (hash(benchmark_name) % 10) + r
+
+                        sampler = optuna.samplers.GPSampler(constant_liar=constant_liar, seed=seed)
+
+                        t0 = time.time()
+                        best = run_batched_study(
+                            problem=problem,
+                            sampler=sampler,
+                            n_trials=n_trials,
+                            batch_size=batch_size,
+                            seed=seed,
+                        )
+                        elapsed = time.time() - t0
+
+                        best_vals.append(best)
+
+                        append_jsonl(
+                            DETAILS_JSONL,
+                            asdict(
+                                DetailRecord(
+                                    benchmark=benchmark_name,
+                                    constant_liar=constant_liar,
+                                    n_trials=n_trials,
+                                    batch_size=batch_size,
+                                    repeat=r,
+                                    seed=seed,
+                                    best_value=best,
+                                    elapsed_sec=elapsed,
+                                )
+                            ),
+                        )
+
+                    mean = float(np.mean(best_vals))
+                    std = float(np.std(best_vals, ddof=1)) if len(best_vals) > 1 else 0.0
+
+                    summary = SummaryRecord(
+                        benchmark=benchmark_name,
+                        constant_liar=constant_liar,
+                        n_trials=n_trials,
+                        batch_size=batch_size,
+                        n_repeats=len(best_vals),
+                        best_value_mean=mean,
+                        best_value_std=std,
+                    )
+
+                    with SUMMARY_CSV.open("a", newline="", encoding="utf-8") as f:
+                        writer = csv.DictWriter(
+                            f,
+                            fieldnames=[
+                                "benchmark",
+                                "constant_liar",
+                                "n_trials",
+                                "batch_size",
+                                "n_repeats",
+                                "best_value_mean",
+                                "best_value_std",
+                            ],
+                        )
+                        writer.writerow(asdict(summary))
+
+                    print(
+                        f"[OK] {benchmark_name} | liar={constant_liar} | n_trials={n_trials} | "
+                        f"batch={batch_size} | mean={mean:.6g} | std={std:.3g}"
+                    )
+
+    print(f"\nWrote:\n  - {DETAILS_JSONL}\n  - {SUMMARY_CSV}")
+
+
+if __name__ == "__main__":
+    main()
