@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 import time
+import hashlib
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import optuna
@@ -18,7 +18,7 @@ from optuna.distributions import (
     CategoricalDistribution,
 )
 
-N_REPEATS = 2
+N_REPEATS = 10
 N_TRIALS_LIST = [25, 50, 75, 100]
 BATCH_SIZES = [5, 10, 50]
 CONSTANT_LIAR_LIST: list[Optional[str]] = [None, "best", "worst", "mean"]
@@ -44,13 +44,8 @@ DETAILS_JSONL = OUT_DIR / "details.jsonl"
 SUMMARY_CSV = OUT_DIR / "summary.csv"
 
 
-# -----------------------------
-# Helpers: suggest params from distributions
-# -----------------------------
 def suggest_from_distribution(trial: optuna.Trial, name: str, dist: BaseDistribution) -> Any:
-    """Suggest a parameter based on Optuna distribution object."""
     if isinstance(dist, FloatDistribution):
-        # FloatDistribution has low/high and optional log/step.
         return trial.suggest_float(name, dist.low, dist.high, log=dist.log, step=dist.step)
     if isinstance(dist, IntDistribution):
         return trial.suggest_int(name, dist.low, dist.high, log=dist.log, step=dist.step)
@@ -63,21 +58,29 @@ def suggest_params(trial: optuna.Trial, search_space: Dict[str, BaseDistribution
     return {name: suggest_from_distribution(trial, name, dist) for name, dist in search_space.items()}
 
 
-def run_batched_study(
+def run_batched_study_checkpoints(
     problem: Any,
     sampler: optuna.samplers.BaseSampler,
-    n_trials: int,
+    n_trials_max: int,
     batch_size: int,
-    seed: int,
-) -> float:
-    if n_trials < batch_size:
-        raise ValueError("n_trials must be >= batch_size")
+    checkpoints: list[int],
+) -> dict[int, float]:
+    if n_trials_max < batch_size:
+        raise ValueError("n_trials_max must be >= batch_size")
+    if any(c > n_trials_max for c in checkpoints):
+        raise ValueError("All checkpoints must be <= n_trials_max")
 
     study = optuna.create_study(directions=problem.directions, sampler=sampler)
 
+    best_val: Optional[float] = None
+    best_at: dict[int, float] = {}
+
     completed = 0
-    while completed < n_trials:
-        current_batch = min(batch_size, n_trials - completed)
+    checkpoints_sorted = sorted(set(checkpoints))
+    next_idx = 0
+
+    while completed < n_trials_max:
+        current_batch = min(batch_size, n_trials_max - completed)
 
         trial_numbers: list[int] = []
         params_batch: list[dict[str, Any]] = []
@@ -85,26 +88,26 @@ def run_batched_study(
         for _ in range(current_batch):
             t = study.ask()
             trial_numbers.append(t.number)
-
-            params = suggest_params(t, problem.search_space)
-            params_batch.append(params)
+            params_batch.append(suggest_params(t, problem.search_space))
 
         values: list[Union[float, Sequence[float]]] = []
         for params in params_batch:
-            v = problem.evaluate(params)
-            values.append(v)
+            values.append(problem.evaluate(params))
 
         for tn, v in zip(trial_numbers, values):
             study.tell(tn, v)
+            completed += 1
 
-        completed += current_batch
+            while next_idx < len(checkpoints_sorted) and completed == checkpoints_sorted[next_idx]:
+                best_at[checkpoints_sorted[next_idx]] = study.best_trial.value
+                next_idx += 1
 
-    return study.best_trial.value
+            if completed >= n_trials_max:
+                break
+
+    return best_at
 
 
-# -----------------------------
-# Benchmark definitions
-# -----------------------------
 def iter_bbob_problems() -> Iterable[Tuple[str, Any]]:
     bbob = optunahub.load_module("benchmarks/bbob")
     for d in BBOB_DIMS:
@@ -120,9 +123,6 @@ def iter_hpobench_problems() -> Iterable[Tuple[str, Any]]:
         yield (f"hpobench_nn:dataset{dataset_id}", p)
 
 
-# -----------------------------
-# Result records
-# -----------------------------
 @dataclass
 class DetailRecord:
     benchmark: str
@@ -132,7 +132,6 @@ class DetailRecord:
     repeat: int
     seed: int
     best_value: float
-    elapsed_sec: float
 
 
 @dataclass
@@ -151,15 +150,10 @@ def append_jsonl(path: Path, rec: dict) -> None:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
-# -----------------------------
-# Main benchmarking loop
-# -----------------------------
 def main() -> None:
-    # reset outputs
     DETAILS_JSONL.write_text("", encoding="utf-8")
     SUMMARY_CSV.write_text("", encoding="utf-8")
 
-    # CSV header
     with SUMMARY_CSV.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
@@ -175,33 +169,37 @@ def main() -> None:
         )
         writer.writeheader()
 
-    all_problem_iters = list(iter_bbob_problems()) + list(iter_hpobench_problems())
+    problems = list(iter_bbob_problems()) + list(iter_hpobench_problems())
 
-    for benchmark_name, problem in all_problem_iters:
-        for n_trials in N_TRIALS_LIST:
-            for batch_size in BATCH_SIZES:
-                if n_trials < batch_size:
-                    continue
+    checkpoints = N_TRIALS_LIST
+    n_trials_max = max(N_TRIALS_LIST)
+    i = 0
 
-                for constant_liar in CONSTANT_LIAR_LIST:
-                    best_vals: list[float] = []
+    for benchmark_name, problem in problems:
+        i += 1
+        for batch_size in BATCH_SIZES:
+            if n_trials_max < batch_size:
+                continue
 
-                    for r in range(N_REPEATS):
-                        seed = 1000 * (hash(benchmark_name) % 10) + r
+            for constant_liar in CONSTANT_LIAR_LIST:
+                best_vals_by_n: dict[int, list[float]] = {n: [] for n in checkpoints}
 
-                        sampler = optuna.samplers.GPSampler(constant_liar=constant_liar, seed=seed)
+                for r in range(N_REPEATS):
+                    seed = i*1000 + r
 
-                        t0 = time.time()
-                        best = run_batched_study(
-                            problem=problem,
-                            sampler=sampler,
-                            n_trials=n_trials,
-                            batch_size=batch_size,
-                            seed=seed,
-                        )
-                        elapsed = time.time() - t0
+                    sampler = optuna.samplers.GPSampler(constant_liar=constant_liar, seed=seed)
 
-                        best_vals.append(best)
+                    best_at = run_batched_study_checkpoints(
+                        problem=problem,
+                        sampler=sampler,
+                        n_trials_max=n_trials_max,
+                        batch_size=batch_size,
+                        checkpoints=checkpoints,
+                    )
+
+                    for n in checkpoints:
+                        best = float(best_at[n])
+                        best_vals_by_n[n].append(best)
 
                         append_jsonl(
                             DETAILS_JSONL,
@@ -209,25 +207,26 @@ def main() -> None:
                                 DetailRecord(
                                     benchmark=benchmark_name,
                                     constant_liar=constant_liar,
-                                    n_trials=n_trials,
+                                    n_trials=n,
                                     batch_size=batch_size,
                                     repeat=r,
                                     seed=seed,
                                     best_value=best,
-                                    elapsed_sec=elapsed,
                                 )
                             ),
                         )
 
-                    mean = float(np.mean(best_vals))
-                    std = float(np.std(best_vals, ddof=1)) if len(best_vals) > 1 else 0.0
+                for n in checkpoints:
+                    vals = best_vals_by_n[n]
+                    mean = float(np.mean(vals))
+                    std = float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0
 
                     summary = SummaryRecord(
                         benchmark=benchmark_name,
                         constant_liar=constant_liar,
-                        n_trials=n_trials,
+                        n_trials=n,
                         batch_size=batch_size,
-                        n_repeats=len(best_vals),
+                        n_repeats=len(vals),
                         best_value_mean=mean,
                         best_value_std=std,
                     )
@@ -248,8 +247,8 @@ def main() -> None:
                         writer.writerow(asdict(summary))
 
                     print(
-                        f"[OK] {benchmark_name} | liar={constant_liar} | n_trials={n_trials} | "
-                        f"batch={batch_size} | mean={mean:.6g} | std={std:.3g}"
+                        f"[OK] {benchmark_name} | liar={constant_liar} | batch={batch_size} | "
+                        f"n_trials={n} | mean={mean:.6g} | std={std:.3g}"
                     )
 
     print(f"\nWrote:\n  - {DETAILS_JSONL}\n  - {SUMMARY_CSV}")
