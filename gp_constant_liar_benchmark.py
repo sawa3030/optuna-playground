@@ -18,7 +18,7 @@ from optuna.distributions import (
     CategoricalDistribution,
 )
 
-N_REPEATS = 10
+N_REPEATS = 100
 N_TRIALS_LIST = [25, 50, 75, 100]
 BATCH_SIZES = [5, 10, 50]
 CONSTANT_LIAR_LIST: list[Optional[str]] = [None, "best", "worst", "mean"]
