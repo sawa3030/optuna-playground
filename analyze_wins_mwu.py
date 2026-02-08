@@ -84,10 +84,10 @@ def main() -> None:
                     continue
                 xk = np.asarray(liar_to_vals[k], dtype=float)
                 if one_sided_mwu_j_better(xj, xk, direction=direction, alpha=ALPHA):
-                    # if j == "none":
-                    #     print(f"[DEBUG] {key}: 'none' better than '{k}'")
-                    if k != "none":
-                        continue
+                    if j == "none":
+                        print(f"[DEBUG] {key}: 'none' better than '{k}'")
+                    # if k != "none":
+                    #     continue
                     wins[j] += 1
 
         results[key] = wins
