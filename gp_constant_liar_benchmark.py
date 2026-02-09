@@ -21,7 +21,7 @@ from optuna.distributions import (
 N_REPEATS = 100
 N_TRIALS_LIST = [25, 50, 75, 100]
 BATCH_SIZES = [5, 10, 50]
-CONSTANT_LIAR_LIST: list[Optional[str]] = [None, "best", "worst", "mean"]
+CONSTANT_LIAR_LIST: list[Optional[str]] = ["worst"]
 
 BBOB_DIMS = [2]
 BBOB_FUNCTION_IDS = [1,6,10,15,20]
