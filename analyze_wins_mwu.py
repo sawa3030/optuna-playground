@@ -97,7 +97,7 @@ def main() -> None:
     all_liars = sorted({lj for wins in results.values() for lj in wins.keys()})
 
     header = ["benchmark_type", "n_trials", "batch_size"] + [f"wins:{lj}" for lj in all_liars]
-    print("\t".join(header))
+    print(",".join(header))
 
 
 
@@ -105,7 +105,7 @@ def main() -> None:
         row = [btype, str(n_trials), str(batch_size)]
         for lj in all_liars:
             row.append(str(wins.get(lj, 0)))
-        print("\t".join(row))
+        print(",".join(row))
 
     # もしCSV保存したいなら：
     out_csv = JSONL_PATH.parent / "wins_mwu.csv"

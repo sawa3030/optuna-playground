@@ -16,8 +16,8 @@ def constraints(trial: optuna.trial.FrozenTrial) -> tuple[float]:
     return (c1, c2)
 
 # study = optuna.create_study(sampler=optuna.samplers.GPSampler(constant_liar=True, constraints_func=constraints), directions=["minimize", "maximize"])
-study = optuna.create_study(sampler=optuna.samplers.GPSampler(constant_liar="worst"))
-# study = optuna.create_study(sampler=optuna.samplers.GPSampler())
+# study = optuna.create_study(sampler=optuna.samplers.GPSampler(constant_liar="worst"))
+study = optuna.create_study(sampler=optuna.samplers.GPSampler())
 # study = optuna.create_study(sampler=optuna.samplers.GPSampler())
 # study = optuna.create_study(sampler=optuna.samplers.TPESampler(constant_liar=True))
 study.optimize(objective, n_trials=20)
