@@ -23,7 +23,7 @@ N_REPEATS = 10
 N_TRIALS_LIST = [25, 50, 75, 100]
 BATCH_SIZES = [5, 10, 50]
 
-CONSTANT_LIAR_LIST: list[Optional[str]] = ["kb"]
+CONSTANT_LIAR_LIST: list[Optional[str]] = ["None"]
 
 WFG_DIM = 9
 WFG_N_OBJECTIVES_LIST = [2, 4, 6, 8]
