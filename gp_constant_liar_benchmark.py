@@ -21,7 +21,7 @@ from optuna.visualization._hypervolume_history import _get_hypervolume_history_i
 N_REPEATS = 10
 N_TRIALS_LIST = [25, 50, 75, 100]
 BATCH_SIZES = [5, 10, 50]
-CONSTANT_LIAR_LIST: list[Optional[str]] = [None]
+CONSTANT_LIAR_LIST: list[Optional[str]] = ["None"]
 
 OUT_DIR = Path("benchmark_results_mo_constrained_hv")
 OUT_DIR.mkdir(parents=True, exist_ok=True)

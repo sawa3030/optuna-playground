@@ -10,7 +10,7 @@ import numpy as np
 from scipy.stats import mannwhitneyu
 
 
-JSONL_PATH = Path("benchmark_results_constrained/details.jsonl")
+JSONL_PATH = Path("benchmark_results_mo_constrained_hv/details.jsonl")
 
 N_TRIALS_LIST = [25, 50, 75, 100]
 BATCH_SIZES = [5, 10, 50]
@@ -35,7 +35,7 @@ def one_sided_mwu_j_better(
     direction: str,
     alpha: float,
 ) -> bool:
-    if len(xj) != 100 or len(xk) != 100:
+    if len(xj) != 10 or len(xk) != 10:
         # raise RuntimeError("Expected 10 samples for each group")
         print(f"[WARNING] Expected 10 samples for each group, got {len(xj)} and {len(xk)}")
         return None
@@ -78,7 +78,7 @@ def main() -> None:
             continue
 
         liar = "none" if rec.get("constant_liar") is None else str(rec.get("constant_liar"))
-        best = float(rec["best_value"])
+        best = float(rec["hypervolume"])
         group[(btype, n_trials, batch_size)][liar].append(best)
 
     # For each key, compute wins matrix among liars
@@ -88,7 +88,7 @@ def main() -> None:
     for key, liar_to_vals in sorted(group.items()):
         btype, n_trials, batch_size = key
         # direction = "min" if btype.startswith("bbob:") else "max"
-        direction = "min"
+        direction = "max"
 
         liars = sorted(liar_to_vals.keys())
         wins = {lj: 0 for lj in liars}
