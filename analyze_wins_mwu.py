@@ -10,11 +10,11 @@ import numpy as np
 from scipy.stats import mannwhitneyu
 
 
-JSONL_PATH = Path("benchmark_results/details.jsonl")
+JSONL_PATH = Path("benchmark_results_mo_hv/details.jsonl")
 
 N_TRIALS_LIST = [25, 50, 75, 100]
 BATCH_SIZES = [5, 10, 50]
-ALPHA = 0.05
+ALPHA = 0.1
 
 def iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
     with path.open("r", encoding="utf-8") as f:
@@ -35,8 +35,23 @@ def one_sided_mwu_j_better(
     direction: str,
     alpha: float,
 ) -> bool:
-    if len(xj) != 100 or len(xk) != 100:
-        raise RuntimeError("Expected 100 samples for each group")
+    if len(xj) != 10 or len(xk) != 10:
+        # raise RuntimeError("Expected 10 samples for each group")
+        print(f"[WARNING] Expected 10 samples for each group, got {len(xj)} and {len(xk)}")
+        return None
+    
+    # # evaluate using mean
+    # xj_mean = np.mean(xj)
+    # xk_mean = np.mean(xk)
+    # if direction == "min":
+    #     if xj_mean < xk_mean:
+    #         return True
+    # elif direction == "max":
+    #     if xj_mean > xk_mean:
+    #         return True
+    # else:
+    #     raise ValueError(f"Invalid direction: {direction}")
+    # return False
 
     # SciPy: mannwhitneyu(x, y, alternative='less') tests whether x is stochastically smaller than y.
     if direction == "min":
@@ -54,8 +69,8 @@ def main() -> None:
 
     for rec in iter_jsonl(JSONL_PATH):
         btype = rec["benchmark"]
-        if not btype.startswith("bbob:") and not btype.startswith("hpobench"):
-            continue
+        # if not btype.startswith("bbob:") and not btype.startswith("hpobench"):
+        #     continue
 
         n_trials = int(rec["n_trials"])
         batch_size = int(rec["batch_size"])
@@ -63,7 +78,7 @@ def main() -> None:
             continue
 
         liar = "none" if rec.get("constant_liar") is None else str(rec.get("constant_liar"))
-        best = float(rec["best_value"])
+        best = float(rec["hypervolume"])
         group[(btype, n_trials, batch_size)][liar].append(best)
 
     # For each key, compute wins matrix among liars
@@ -72,7 +87,8 @@ def main() -> None:
 
     for key, liar_to_vals in sorted(group.items()):
         btype, n_trials, batch_size = key
-        direction = "min" if btype.startswith("bbob:") else "max"
+        # direction = "min" if btype.startswith("bbob:") else "max"
+        direction = "max"
 
         liars = sorted(liar_to_vals.keys())
         wins = {lj: 0 for lj in liars}
@@ -83,7 +99,11 @@ def main() -> None:
                 if j == k:
                     continue
                 xk = np.asarray(liar_to_vals[k], dtype=float)
-                if one_sided_mwu_j_better(xj, xk, direction=direction, alpha=ALPHA):
+                ans = one_sided_mwu_j_better(xj, xk, direction=direction, alpha=ALPHA)
+                if ans is None:
+                    print(f"[WARNING] Skipping comparison {j} vs {k} for {key} due to insufficient samples")
+                    continue
+                if ans is True:
                     if j == "none":
                         print(f"[DEBUG] {key}: 'none' better than '{k}'")
                     # if k != "none":
