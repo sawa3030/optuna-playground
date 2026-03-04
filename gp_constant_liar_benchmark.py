@@ -13,7 +13,7 @@ import optuna
 N_REPEATS = 100
 N_TRIALS_LIST = [25, 50, 75, 100]
 BATCH_SIZES = [5, 10, 50]
-CONSTANT_LIAR_LIST: list[Optional[str]] = ["none"]
+CONSTANT_LIAR_LIST: list[Optional[str]] = ["kb"]
 
 # Output
 OUT_DIR = Path("benchmark_results_constrained")
@@ -23,13 +23,13 @@ SUMMARY_CSV = OUT_DIR / "summary.csv"
 
 
 def objective(x: float, y: float) -> float:
-    return float(np.sin(x) + y)
+    return float(np.cos(2*x) * np.cos(y) + np.sin(x))
 
 
 def constraints(trial: optuna.trial.FrozenTrial) -> tuple[float]:
     x = trial.params["x"]
     y = trial.params["y"]
-    c = float(np.sin(x) * np.sin(y) + 0.95)
+    c = float(np.cos(x) * np.cos(y) - np.sin(x) * np.sin(y) - 0.5)
     return (c,)
 
 
@@ -135,7 +135,7 @@ def main() -> None:
 
     checkpoints = N_TRIALS_LIST
     n_trials_max = max(N_TRIALS_LIST)
-    benchmark_name = "bench2"
+    benchmark_name = "bench1"
 
     for batch_size in BATCH_SIZES:
         if n_trials_max < batch_size:

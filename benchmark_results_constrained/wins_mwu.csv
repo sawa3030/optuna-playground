@@ -1,4 +1,16 @@
 benchmark_type,n_trials,batch_size,wins:kb,wins:none
+bench1,25,5,1,0
+bench1,25,10,1,0
+bench1,25,50,0,0
+bench1,50,5,1,0
+bench1,50,10,1,0
+bench1,50,50,0,0
+bench1,75,5,1,0
+bench1,75,10,1,0
+bench1,75,50,1,0
+bench1,100,5,1,0
+bench1,100,10,1,0
+bench1,100,50,1,0
 bench2,25,5,0,0
 bench2,25,10,0,0
 bench2,25,50,0,0
