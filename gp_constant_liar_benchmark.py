@@ -13,10 +13,10 @@ import optuna
 N_REPEATS = 100
 N_TRIALS_LIST = [25, 50, 75, 100]
 BATCH_SIZES = [5, 10, 50]
-CONSTANT_LIAR_LIST: list[Optional[str]] = ["worst"]
+CONSTANT_LIAR_LIST: list[Optional[str]] = ["none"]
 
 # Output
-OUT_DIR = Path("benchmark_results")
+OUT_DIR = Path("benchmark_results_constrained")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 DETAILS_JSONL = OUT_DIR / "details.jsonl"
 SUMMARY_CSV = OUT_DIR / "summary.csv"
@@ -116,9 +116,9 @@ def run_batched_study_checkpoints(
 
 
 def main() -> None:
-    DETAILS_JSONL.write_text("", encoding="utf-8")
+    # DETAILS_JSONL.write_text("", encoding="utf-8")
 
-    with SUMMARY_CSV.open("w", newline="", encoding="utf-8") as f:
+    with SUMMARY_CSV.open(mode="a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
             fieldnames=[
