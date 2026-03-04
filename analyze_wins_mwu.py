@@ -103,7 +103,7 @@ def main() -> None:
                 if ans is None:
                     print(f"[WARNING] Skipping comparison {j} vs {k} for {key} due to insufficient samples")
                     continue
-                if ans is True:
+                if ans:
                     if j == "none":
                         print(f"[DEBUG] {key}: 'none' better than '{k}'")
                     # if k != "none":
