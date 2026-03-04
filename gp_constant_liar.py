@@ -8,14 +8,14 @@ warnings.simplefilter("always")
 def objective(trial):
     x1 = trial.suggest_float("x1", -10, 10)
     x2 = trial.suggest_float("x2", -10, 10)
-    return x1**2 + x2
+    return x1**2 + x2, x1 + x2**2
 
 def constraints(trial: optuna.trial.FrozenTrial) -> tuple[float]:
     c1 = 10 - trial.params["x1"] - trial.params["x2"]
     c2 = trial.params["x1"] - 5
     return (c1, c2)
 
-study = optuna.create_study(sampler=optuna.samplers.GPSampler(constraints_func=constraints))
+study = optuna.create_study(sampler=optuna.samplers.GPSampler(constraints_func=constraints), directions=["minimize", "minimize"])
 # study = optuna.create_study(sampler=optuna.samplers.GPSampler(constant_liar="worst"))
 # study = optuna.create_study(sampler=optuna.samplers.GPSampler())
 # study = optuna.create_study(sampler=optuna.samplers.GPSampler())
@@ -37,7 +37,7 @@ for j in range(3):
         print(f"Trial {i}: x1={x1}, x2={x2}")
 
     for i in range (5):
-        study.tell(trials[i], [10])
+        study.tell(trials[i], [10, 10])
 
 for j in range(1):
     trials = []
@@ -58,7 +58,7 @@ for j in range(1):
         print(f"Trial {i}: x2={x2}")
 
     for i in range (5):
-        study.tell(trials[i], [10])
+        study.tell(trials[i], [10, 10])
 
 # def objective1(trial):
 #     a1 = trial.suggest_float("a1", -10, 10)
