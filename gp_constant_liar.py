@@ -15,9 +15,9 @@ def constraints(trial: optuna.trial.FrozenTrial) -> tuple[float]:
     c2 = trial.params["x1"] - 5
     return (c1, c2)
 
-# study = optuna.create_study(sampler=optuna.samplers.GPSampler(constant_liar=True, constraints_func=constraints), directions=["minimize", "maximize"])
+study = optuna.create_study(sampler=optuna.samplers.GPSampler(constraints_func=constraints))
 # study = optuna.create_study(sampler=optuna.samplers.GPSampler(constant_liar="worst"))
-study = optuna.create_study(sampler=optuna.samplers.GPSampler())
+# study = optuna.create_study(sampler=optuna.samplers.GPSampler())
 # study = optuna.create_study(sampler=optuna.samplers.GPSampler())
 # study = optuna.create_study(sampler=optuna.samplers.TPESampler(constant_liar=True))
 study.optimize(objective, n_trials=20)
@@ -31,7 +31,7 @@ for j in range(3):
         trials.append(trial)
 
     for i in range(5):
-        print(study.trials[trials[i].number])
+        # print(study.trials[trials[i].number])
         x1 = trials[i].suggest_float("x1", -10, 10)
         x2 = trials[i].suggest_float("x2", -10, 10)
         print(f"Trial {i}: x1={x1}, x2={x2}")
