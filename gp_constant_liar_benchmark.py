@@ -187,7 +187,8 @@ def main() -> None:
                 for r in range(N_REPEATS):
                     seed = i*1000 + r
 
-                    sampler = optuna.samplers.GPSampler(constant_liar=constant_liar, seed=seed)
+                    # sampler = optuna.samplers.GPSampler(constant_liar=constant_liar, seed=seed)
+                    sampler = optuna.samplers.GPSampler(seed=seed)
 
                     best_at = run_batched_study_checkpoints(
                         problem=problem,
