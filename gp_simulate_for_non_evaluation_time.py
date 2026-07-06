@@ -17,32 +17,6 @@ from optuna.distributions import (
 )
 import numpy as np
 
-# Problem = optunahub.load_module("benchmarks/hpobench_nn").Problem
-# Problem = optunahub.load_module("benchmarks/bbob").Problem
-# wfg = optunahub.load_module("benchmarks/wfg")
-
-
-def suggest_from_distribution(
-    trial: optuna.Trial, name: str, dist: BaseDistribution
-) -> Any:
-    if isinstance(dist, FloatDistribution):
-        return trial.suggest_float(name, dist.low, dist.high, log=dist.log, step=dist.step)
-    if isinstance(dist, IntDistribution):
-        return trial.suggest_int(name, dist.low, dist.high, log=dist.log, step=dist.step)
-    if isinstance(dist, CategoricalDistribution):
-        return trial.suggest_categorical(name, dist.choices)
-    raise TypeError(f"Unsupported distribution type for {name}: {type(dist)}")
-
-
-def suggest_params(
-    trial: optuna.Trial, search_space: dict[str, BaseDistribution]
-) -> dict[str, Any]:
-    return {
-        name: suggest_from_distribution(trial, name, dist)
-        for name, dist in search_space.items()
-    }
-
-
 def simulate(
     n_workers: int,
     n_trials: int,
@@ -55,14 +29,9 @@ def simulate(
     if n_workers <= 0:
         raise ValueError("n_workers must be >= 1")
 
-    # problem = Problem(dataset_id=dataset_id, metric_names=["val_acc"], seed=0)
-    # problem = Problem(function_id=dataset_id, dimension=2)
-    # problem = wfg.Problem(function_id=4, n_objectives=4, dimension=8)
-    # problem = wfg.Problem(function_id=4, n_objectives=2, dimension=3, k=1)
-
     def objective(x: float, y: float) -> float:
         # return float(np.cos(2*x) * np.cos(y) + np.sin(x))
-        return float(np.cos(x) + y)
+        return float(np.sin(x) + y)
 
     def constraints(trial: optuna.trial.FrozenTrial) -> tuple[float]:
         x = trial.params["x"]
@@ -79,9 +48,8 @@ def simulate(
         seed=seed,
         constraints_func=constraints,
     )
-    sampler._tau = tau
-    sampler._use_qmc = use_qmc
-    # sampler._q_acqf_n_qmc_samples = 128
+    # sampler._tau = tau
+    # sampler._use_qmc = use_qmc
     study = optuna.create_study(sampler=sampler)
     start_time = time.perf_counter()
 
@@ -95,10 +63,8 @@ def simulate(
 
         if pending[worker_id] is not None:
             previous_trial, previous_params = pending[worker_id]
-            # value = problem.evaluate(previous_params)
             value = objective(**previous_params)
             study.tell(previous_trial, value)
-            # print(f"Trial {previous_trial.number}: cumtime = {previous_trial.user_attrs['cumtime']}, value = {value}, constraint = {constraints(previous_trial)}")
             pending[worker_id] = None
             n_completed += 1
             if n_completed >= n_trials:
@@ -106,20 +72,17 @@ def simulate(
 
         if n_suggested < n_trials:
             trial = study.ask()
-            # params = suggest_params(trial, problem.search_space)
             x = trial.suggest_float("x", 0.0, 2 * np.pi)
             y = trial.suggest_float("y", 0.0, 2 * np.pi)
             params = {"x": x, "y": y}
-            # trial.set_user_attr("cumtime", time.perf_counter() - start_time)
-            trial.set_user_attr("cumtime", trial._trial_id + 1)  # Simulate cumulative time as trial number + 1
-            # print(f"Trial {trial.number}: cumtime = {trial.user_attrs['cumtime']}")
+            trial.set_user_attr("trial_num", trial._trial_id + 1)  # Simulate cumulative time as trial number + 1
             pending[worker_id] = (trial, params)
             n_suggested += 1
 
     trials = [
         t
         for t in study.trials[n_startup_trials+n_workers-1:]
-        if t.state == optuna.trial.TrialState.COMPLETE and "cumtime" in t.user_attrs and feasible(t)
+        if t.state == optuna.trial.TrialState.COMPLETE and feasible(t)
     ]
     trials = trials[: max(0, n_trials - n_startup_trials - n_workers + 1)]
 
