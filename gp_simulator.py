@@ -11,33 +11,63 @@ from pathlib import Path
 import pickle
 import random
 import time
-
+import numpy as np
+import optunahub
 
 plot_target_over_time = optunahub.load_module(
     "visualization/plot_target_over_time"
 ).plot_target_over_time
-Problem = optunahub.load_module("benchmarks/hpobench_nn").Problem
+# Problem = optunahub.load_module("benchmarks/hpobench_nn").Problem
 # Problem = optunahub.load_module("benchmarks/bbob").Problem
 AsyncOptBenchmarkSimulator = optunahub.load_local_module(
     package = "benchmarks/async_opt_simulator",
     registry_root = "/home/eri/pfn/optunahub-registry/package",
 ).AsyncOptBenchmarkSimulator
 
+class Problem(optunahub.benchmarks.BaseProblem):
+    def __init__(self):
+        self.directions = ["minimize"]
+        self.search_space = {
+            "x": optuna.distributions.FloatDistribution(0.0, 2 * np.pi),
+            "y": optuna.distributions.FloatDistribution(0.0, 2 * np.pi),
+        }
+
+    def directions(self) -> list[str]:
+        return self.directions
+    
+    def search_space(self) -> dict[str, optuna.distributions.BaseDistribution]:
+        return self.search_space
+
+    def evaluate(self, params: dict[str, float]) -> float:
+        x = params["x"]
+        y = params["y"]
+        return float(np.cos(2*x) * np.cos(y) + np.sin(x))
+
+
 
 def simulate(n_workers: int, seed: int, dataset_id: int) -> optuna.Study:
     sim = AsyncOptBenchmarkSimulator(n_workers=n_workers)
-    problem = Problem(dataset_id=dataset_id, metric_names=["val_acc"], seed=0)
-    # problem = Problem(function_id=15, dimension=2)
-    runtime_func = Problem(dataset_id=dataset_id, metric_names=["train_time"], seed=0)
+    # problem = Problem(dataset_id=dataset_id, metric_names=["val_acc"], seed=0)
+    # problem = Problem(function_id=10, dimension=2)
+    # runtime_func = Problem(dataset_id=dataset_id, metric_names=["train_time"], seed=0)
+
+    def constraints(trial: optuna.trial.FrozenTrial) -> tuple[float]:
+        x = trial.params["x"]
+        y = trial.params["y"]
+        c = float(np.cos(x) * np.cos(y) - np.sin(x) * np.sin(y) - 0.5)
+        return (c,)
+
+    problem = Problem()
+
     sampler = optuna.samplers.GPSampler(
         n_startup_trials=(n_init := 10),
         seed=seed,
     )
     n_trials = 100
-    study = optuna.create_study(directions=problem.directions, sampler=sampler)
+    study = optuna.create_study(sampler=sampler)
     random.seed(seed)
     sim.optimize(
-        study=study, problem=problem, runtime_func=lambda t: runtime_func(t)[0], n_trials=n_trials,
+        study=study, problem=problem, runtime_func=lambda t: 100.0, n_trials=n_trials,
     )
     trials = [
         t
@@ -46,7 +76,7 @@ def simulate(n_workers: int, seed: int, dataset_id: int) -> optuna.Study:
     ]
     trials = trials[:n_trials - n_init]
 
-    new_study = optuna.create_study(directions=problem.directions)
+    new_study = optuna.create_study()
     new_study.add_trials(trials)
     return new_study
 

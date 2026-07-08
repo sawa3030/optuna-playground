@@ -8,12 +8,11 @@ import re
 import matplotlib.pyplot as plt
 import optuna
 import optunahub
+import random
 
 
-plot_target_over_time = optunahub.load_local_module(
-    package = "visualization/plot_target_over_time",
-    registry_root = "/home/eri/pfn/optunahub-registry/package",
-    # "visualization/plot_target_over_time"
+plot_target_over_time = optunahub.load_module(
+    "visualization/plot_target_over_time"
 ).plot_target_over_time
 
 
@@ -37,47 +36,67 @@ def trim_to_same_length(study_list: list[optuna.Study]) -> list[optuna.Study]:
 
 
 def get_style(label: str) -> dict[str, str]:
-    if label == "qlogei" or label == "qLogEI" or label == "fatplus" or label == "fatmax":
-        return {
-            "color": "red",
-            "marker": "*",
-            "ls": "dotted",
-            # "plot_label": "qLogEI (n_qmc_samples=512)",
-            "plot_label": "fatmax",
-        }
-    elif label == "master" or label == "softplus" or label == "max":
+    if label == "master":
         return {
             "color": "blue",
             "marker": "s",
             "ls": "dashed",
-            # "plot_label": "master",
-            "plot_label": "max",
+            "plot_label": "master",
         }
-    elif label == "qlogei-128" or label == "relu":
+    elif label == "qConstrainedLogEI":
         return {
             "color": "green",
             "marker": "D",
             "ls": "dashdot",
             # "plot_label": "qLogEI (n_qmc_samples=128)",
-            "plot_label": "relu",
+            "plot_label": "qConstrainedLogEI",
         }
-    elif label == "qlogei-32":
+    elif label == "qConstrainedLogEI-tau0-01":
         return {
-            "color": "orange",
+            "color": "red",
             "marker": "P",
             "ls": "dashdot",
-            "plot_label": "qLogEI (n_qmc_samples=32)",
+            "plot_label": "qConstrainedLogEI (tau=0.01)",
         }
-    elif label == "qlogei-64":
+    elif label == "qConstrainedLogEI-tau0-1":
         return {
             "color": "purple",
             "marker": "X",
             "ls": "dashdot",
-            "plot_label": "qLogEI (n_qmc_samples=64)",
+            "plot_label": "qConstrainedLogEI (tau=0.1)",
         }
-    else:
+    elif label == "qConstrainedLogEI-tau1":
+        return {
+            "color": "brown",
+            "marker": "D",
+            "ls": "dashdot",
+            "plot_label": "qConstrainedLogEI (tau=1.0)",
+        }
+    elif label == "qConstrainedLogEI-tau10":
         return {
             "color": "black",
+            "marker": "s",
+            "ls": "dashdot",
+            "plot_label": "qConstrainedLogEI (tau=10.0)",
+        }
+    elif label == "qConstrainedLogEI-tau100":
+        return {
+            "color": "orange",
+            "marker": "*",
+            "ls": "dashdot",
+            "plot_label": "qConstrainedLogEI (tau=100.0)",
+        }
+    elif label == "qConstrainedLogEI-tau0-001":
+        return {
+            "color": "orange",
+            "marker": "o",
+            "ls": "dashdot",
+            "plot_label": "qConstrainedLogEI (tau=0.001)",
+        }
+    else:
+        color = random.choice(["red", "blue", "green", "orange", "purple", "brown", "pink", "gray"])
+        return {
+            "color": color,
             "marker": "o",
             "ls": "solid",
             "plot_label": label,
@@ -85,18 +104,12 @@ def get_style(label: str) -> dict[str, str]:
 
 
 def build_plot_title(result_dir: Path) -> str:
-    name = result_dir.name.lower()
-    dataset_match = re.search(r"dataset(\d+)", name)
-    dataset_id = dataset_match.group(1) if dataset_match else "unknown"
+    # return f"objective: cos(2*x)*cos(y) + sin(x), constraint: cos(x)*cos(y) - sin(x)*sin(y) - 0.5 <= 0"
+    return f"objective: sin(x) + y, constraint: sin(x)*sin(y) + 0.95 <= 0"
 
-    if "bbo" in name or "bbob" in name:
-        benchmark = "BBOB"
-    elif "gp_simulator" in name:
-        benchmark = "HPO"
-    else:
-        benchmark = "HPO"
 
-    return f"Benchmark: {benchmark}, Dataset ID: {dataset_id}"
+def get_trial_count_for_plot(trial: optuna.trial.FrozenTrial) -> float:
+    return trial.user_attrs.get("trial_num")
 
 
 def main() -> None:
@@ -133,18 +146,16 @@ def main() -> None:
             study_list,
             color=style["color"],
             ax=ax,
-            cumtime_func=lambda t: max(t.user_attrs["cumtime"], 1e-12),
+            cumtime_func=get_trial_count_for_plot,
             label=style["plot_label"],
             marker=style["marker"],
             ls=style["ls"],
             markevery=10,
         )
 
-    ax.set_xscale("log")
-    ax.set_yscale("log")
     ax.grid(True, which="major", alpha=0.5)
     ax.grid(True, which="minor", alpha=0.2)
-    ax.set_xlabel("Simulated cumulative time")
+    ax.set_xlabel("Number of trials")
     ax.set_ylabel("Best value so far")
     ax.set_title(build_plot_title(result_dir))
     ax.legend()

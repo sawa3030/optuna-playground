@@ -48,8 +48,8 @@ def simulate(
         seed=seed,
         constraints_func=constraints,
     )
-    # sampler._tau = tau
-    # sampler._use_qmc = use_qmc
+    sampler._tau = tau
+    sampler._use_qmc = use_qmc
     study = optuna.create_study(sampler=sampler)
     start_time = time.perf_counter()
 
@@ -101,8 +101,7 @@ def main() -> None:
     parser.add_argument("--n-seeds", type=int, default=10)
     parser.add_argument("--dataset-id", type=int, default=10)
     parser.add_argument("--tau", type=float, default=0.01)
-    parser.add_argument("--use_qmc", type=bool, default=True)
-    args = parser.parse_args()
+    parser.add_argument("--use_qmc", type=bool, default=False)
 
     study_list: list[optuna.Study] = []
     for seed in range(args.n_seeds):
