@@ -1,11 +1,16 @@
 source ~/pfn/optuna/venv/bin/
 cd ~/pfn/optuna-playground
 
-python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau0-01 --out-dir ./constrained_trial_num_2 --tau 0.01 --use_qmc True
-python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau0-1 --out-dir ./constrained_trial_num_2 --tau 0.1 --use_qmc True
-python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau1 --out-dir ./constrained_trial_num_2 --tau 1.0 --use_qmc True
-python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau10 --out-dir ./constrained_trial_num_2 --tau 10.0 --use_qmc True
-python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau100 --out-dir ./constrained_trial_num_2 --tau 100 --use_qmc True
+# python gp_simulate_for_non_evaluation_time.py --label master --out-dir ./qlogehvi_wfg_function4_n2_d3_k1
+python gp_simulate_for_non_evaluation_time.py --label qLogEHVI-4-2048 --out-dir ./qlogehvi_wfg_function4_n2_d3_k1
+# python gp_simulate_for_non_evaluation_time.py --label master --out-dir ./constrained_trial_num_2
+# python gp_simulate_for_non_evaluation_time.py --label master --out-dir ./constrained_trial_num_1
+# python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau0-001 --out-dir ./constrained_trial_num_1 --tau 0.001 --use_qmc True
+# python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau0-01 --out-dir ./constrained_trial_num_1 --tau 0.01 --use_qmc True
+# python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau0-1 --out-dir ./constrained_trial_num_1 --tau 0.1 --use_qmc True
+# python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau1 --out-dir ./constrained_trial_num_1 --tau 1.0 --use_qmc True
+# python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau10 --out-dir ./constrained_trial_num_1 --tau 10.0 --use_qmc True
+# python gp_simulate_for_non_evaluation_time.py --label qConstrainedLogEI-tau100 --out-dir ./constrained_trial_num_1 --tau 100 --use_qmc True
 
 
 # python gp_simulate_for_non_evaluation_time.py --label max --out-dir ./maxoperator_without_evaltime_n5_dataset0 --dataset-id 0
