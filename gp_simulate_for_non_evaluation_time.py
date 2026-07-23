@@ -19,6 +19,35 @@ from optuna.distributions import (
 wfg = optunahub.load_module("benchmarks/wfg")
 
 
+def create_problem(
+    function_id: int,
+    n_objectives: int,
+    dimension: int,
+    k: int,
+):
+    return wfg.Problem(
+        function_id=function_id,
+        n_objectives=n_objectives,
+        dimension=dimension,
+        k=k,
+    )
+
+
+def set_problem_attrs(
+    study: optuna.Study,
+    *,
+    function_id: int,
+    n_objectives: int,
+    dimension: int,
+    k: int,
+) -> None:
+    study.set_user_attr("problem_module", "wfg")
+    study.set_user_attr("function_id", function_id)
+    study.set_user_attr("n_objectives", n_objectives)
+    study.set_user_attr("dimension", dimension)
+    study.set_user_attr("k", k)
+
+
 def suggest_from_distribution(
     trial: optuna.Trial, name: str, dist: BaseDistribution
 ) -> Any:
@@ -45,14 +74,20 @@ def simulate(
     n_trials: int,
     n_startup_trials: int,
     seed: int,
-    dataset_id: int,
+    function_id: int,
+    n_objectives: int,
+    dimension: int,
+    k: int,
 ) -> optuna.Study:
     if n_workers <= 0:
         raise ValueError("n_workers must be >= 1")
 
-    # problem = Problem(dataset_id=dataset_id, metric_names=["val_acc"], seed=0)
-    # problem = Problem(function_id=dataset_id, dimension=2)
-    problem = wfg.Problem(function_id=4, n_objectives=2, dimension=3, k=1)
+    problem = create_problem(
+        function_id=function_id,
+        n_objectives=n_objectives,
+        dimension=dimension,
+        k=k,
+    )
 
     sampler = optuna.samplers.GPSampler(
         n_startup_trials=n_startup_trials,
@@ -84,7 +119,6 @@ def simulate(
             trial = study.ask()
             params = suggest_params(trial, problem.search_space)
             trial.set_user_attr("cumtime", time.perf_counter() - start_time)
-            trial.set_user_attr("trial_num", trial._trial_id + 1)  # Simulate cumulative time as trial number + 1
             pending[worker_id] = (trial, params)
             n_suggested += 1
 
@@ -95,11 +129,15 @@ def simulate(
     ]
     trials = trials[: max(0, n_trials - n_startup_trials - n_workers + 1)]
 
-    fig = optuna.visualization.plot_hypervolume_history(study, reference_point=problem.reference_point)
-    fig.write_image(f"hypervolume_history_qLogEHVI-4-2048.png")
-
     new_study = optuna.create_study(directions=problem.directions)
     new_study.add_trials(trials)
+    set_problem_attrs(
+        new_study,
+        function_id=function_id,
+        n_objectives=n_objectives,
+        dimension=dimension,
+        k=k,
+    )
     return new_study
 
 
@@ -110,8 +148,11 @@ def main() -> None:
     parser.add_argument("--n-workers", type=int, default=5)
     parser.add_argument("--n-trials", type=int, default=100)
     parser.add_argument("--n-startup-trials", type=int, default=10)
-    parser.add_argument("--n-seeds", type=int, default=1)
-    parser.add_argument("--dataset-id", type=int, default=10)
+    parser.add_argument("--n-seeds", type=int, default=10)
+    parser.add_argument("--function-id", type=int, default=4)
+    parser.add_argument("--n-objectives", type=int, default=2)
+    parser.add_argument("--dimension", type=int, default=3)
+    parser.add_argument("--k", type=int, default=1)
     args = parser.parse_args()
 
     study_list: list[optuna.Study] = []
@@ -121,7 +162,10 @@ def main() -> None:
             n_trials=args.n_trials,
             n_startup_trials=args.n_startup_trials,
             seed=seed,
-            dataset_id=args.dataset_id,
+            function_id=args.function_id,
+            n_objectives=args.n_objectives,
+            dimension=args.dimension,
+            k=args.k,
         )
         study_list.append(study)
 

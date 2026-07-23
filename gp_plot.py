@@ -43,7 +43,7 @@ def get_style(label: str) -> dict[str, str]:
             "marker": "*",
             "ls": "dotted",
             # "plot_label": "qLogEI (n_qmc_samples=512)",
-            "plot_label": "fatmax",
+            "plot_label": "fatplus",
         }
     elif label == "master" or label == "softplus" or label == "max":
         return {
@@ -51,7 +51,7 @@ def get_style(label: str) -> dict[str, str]:
             "marker": "s",
             "ls": "dashed",
             # "plot_label": "master",
-            "plot_label": "max",
+            "plot_label": "softplus",
         }
     elif label == "qlogei-128" or label == "relu":
         return {
@@ -86,17 +86,49 @@ def get_style(label: str) -> dict[str, str]:
 
 def build_plot_title(result_dir: Path) -> str:
     name = result_dir.name.lower()
-    dataset_match = re.search(r"dataset(\d+)", name)
-    dataset_id = dataset_match.group(1) if dataset_match else "unknown"
+    parts: list[str] = []
 
-    if "bbo" in name or "bbob" in name:
-        benchmark = "BBOB"
-    elif "gp_simulator" in name:
-        benchmark = "HPO"
+    if "wfg" in name:
+        function_match = re.search(r"_function(\d+)", name)
+        objective_match = re.search(r"_n(\d+)", name)
+        dimension_match = re.search(r"_d(\d+)", name)
+        k_match = re.search(r"_k(\d+)", name)
+
+        benchmark = "WFG"
+        if function_match:
+            benchmark += f" Function {function_match.group(1)}"
+
+        details = []
+        if objective_match:
+            details.append(f"{objective_match.group(1)} objectives")
+        if dimension_match:
+            details.append(f"dim={dimension_match.group(1)}")
+        if k_match:
+            details.append(f"k={k_match.group(1)}")
+
+        parts.append(benchmark)
+        if details:
+            parts.append(f"({', '.join(details)})")
     else:
-        benchmark = "HPO"
+        dataset_match = re.search(r"dataset(\d+)", name)
+        dataset_id = dataset_match.group(1) if dataset_match else "unknown"
 
-    return f"Benchmark: {benchmark}, Dataset ID: {dataset_id}"
+        if "bbo" in name or "bbob" in name:
+            parts.append(f"BBOB Dataset {dataset_id}")
+        else:
+            parts.append(f"HPOBench Dataset {dataset_id}")
+
+    worker_match = re.search(r"(?:without_evaltime_|results_)n(\d+)(?:_|$)", name)
+    if worker_match:
+        parts.append(f"{worker_match.group(1)} workers")
+
+    if "without_evaltime" in name:
+        parts.append("without evaluation time")
+
+    if not parts:
+        return result_dir.name
+
+    return " | ".join(parts)
 
 
 def main() -> None:
