@@ -22,7 +22,7 @@ def load_study_list(result_dir: Path, label: str) -> list[optuna.Study]:
 
 
 def get_style(label: str) -> dict[str, str]:
-    if label in {"qlogei", "qLogEI", "fatplus", "fatmax"}:
+    if label in {"qlogei", "qLogEI", "fatplus", "fatmax", "qLogEHVI-3-128"}:
         return {
             "color": "red",
             "marker": "*",
