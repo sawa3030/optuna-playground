@@ -8,10 +8,10 @@ import optunahub
 
 import argparse
 from pathlib import Path
-import pickle
 import random
 import time
 
+from study_snapshot import dump_study_list
 
 plot_target_over_time = optunahub.load_module(
     "visualization/plot_target_over_time"
@@ -67,6 +67,5 @@ if __name__ == "__main__":
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{args.label}.pickle"
 
-    with out_path.open("wb") as f:
-        pickle.dump(study_list, f)
+    dump_study_list(out_path, study_list)
     

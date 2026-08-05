@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 import itertools
-import pickle
 import time
 from pathlib import Path
 from typing import Any
 
 import optuna
 import optunahub
+from study_snapshot import dump_study_list
 from optuna.distributions import (
     BaseDistribution,
     CategoricalDistribution,
@@ -125,8 +125,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{args.label}.pickle"
 
-    with out_path.open("wb") as f:
-        pickle.dump(study_list, f)
+    dump_study_list(out_path, study_list)
 
     print(f"Saved {len(study_list)} studies to {out_path}")
 

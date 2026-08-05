@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import pickle
 import re
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import optuna
 import optunahub
+from study_snapshot import load_study_list
 
 
 plot_target_over_time = optunahub.load_local_module(
@@ -15,14 +16,6 @@ plot_target_over_time = optunahub.load_local_module(
     registry_root = "/home/eri/pfn/optunahub-registry/package",
     # "visualization/plot_target_over_time"
 ).plot_target_over_time
-
-
-def load_study_list(result_dir: Path, label: str) -> list[optuna.Study]:
-    path = result_dir / f"{label}.pickle"
-    with path.open("rb") as f:
-        study_list = pickle.load(f)
-    return study_list
-
 
 def trim_to_same_length(study_list: list[optuna.Study]) -> list[optuna.Study]:
     min_len = min(len(study.trials) for study in study_list)
@@ -37,21 +30,21 @@ def trim_to_same_length(study_list: list[optuna.Study]) -> list[optuna.Study]:
 
 
 def get_style(label: str) -> dict[str, str]:
-    if label == "qlogei" or label == "qLogEI" or label == "fatplus" or label == "fatmax":
+    if label == "qlogei" or label == "qLogEI" or label == "fatplus" or label == "fatmax" or label == "v5_0":
         return {
             "color": "red",
             "marker": "*",
             "ls": "dotted",
             # "plot_label": "qLogEI (n_qmc_samples=512)",
-            "plot_label": "fatmax",
+            "plot_label": "v5.0",
         }
-    elif label == "master" or label == "softplus" or label == "max":
+    elif label == "master" or label == "softplus" or label == "max" or label == "v4_9":
         return {
             "color": "blue",
             "marker": "s",
             "ls": "dashed",
             # "plot_label": "master",
-            "plot_label": "max",
+            "plot_label": "v4.9",
         }
     elif label == "qlogei-128" or label == "relu":
         return {
@@ -124,7 +117,7 @@ def main() -> None:
     _, ax = plt.subplots()
 
     for label in args.labels:
-        study_list = load_study_list(result_dir, label)
+        study_list = load_study_list(result_dir / f"{label}.pickle")
         study_list = trim_to_same_length(study_list)
 
         style = get_style(label)
@@ -133,21 +126,22 @@ def main() -> None:
             study_list,
             color=style["color"],
             ax=ax,
-            cumtime_func=lambda t: max(t.user_attrs["cumtime"], 1e-12),
+            cumtime_func=lambda t: t.number,
+            log_time_scale=False,
             label=style["plot_label"],
             marker=style["marker"],
             ls=style["ls"],
             markevery=10,
         )
 
-    ax.set_xscale("log")
-    ax.set_yscale("log")
+    # ax.set_yscale("log")
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.grid(True, which="major", alpha=0.5)
     ax.grid(True, which="minor", alpha=0.2)
-    ax.set_xlabel("Simulated cumulative time")
+    ax.set_xlabel("Trial number")
     ax.set_ylabel("Best value so far")
     ax.set_title(build_plot_title(result_dir))
-    ax.legend()
+    ax.legend(fontsize=12)
 
     plt.savefig(args.output, bbox_inches="tight")
     print(f"Saved to {args.output}")
