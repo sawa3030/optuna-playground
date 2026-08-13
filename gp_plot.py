@@ -173,7 +173,6 @@ def main() -> None:
         )
 
     ax.set_xscale("log")
-    # ax.set_yscale("log")
     ax.grid(True, which="major", alpha=0.5)
     ax.grid(True, which="minor", alpha=0.2)
     ax.set_xlabel("Simulated cumulative time")

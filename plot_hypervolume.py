@@ -26,12 +26,12 @@ def load_study_list(result_dir: Path, label: str) -> list[optuna.Study]:
 
 
 def get_style(label: str) -> dict[str, str]:
-    if label in {"qlogei", "qLogEI", "fatplus", "fatmax", "qConstrainedLogEHVI"}:
+    if label in {"qlogei", "qLogEI", "fatplus", "fatmax", "qConstrainedLogEHVI-with-hvi"}:
         return {
             "color": "red",
             "marker": "*",
             "ls": "dotted",
-            "plot_label": "fatmax" if label == "fatmax" else label,
+            "plot_label": "qConstrainedLogEHVI",
         }
     if label in {"master", "softplus", "max"}:
         return {
@@ -40,14 +40,14 @@ def get_style(label: str) -> dict[str, str]:
             "ls": "dashed",
             "plot_label": "max" if label == "max" else label,
         }
-    if label in {"qlogei-128", "relu"}:
+    if label in {"qlogei-128", "relu", "qConstrainedLogEHVI", }:
         return {
             "color": "green",
             "marker": "D",
             "ls": "dashdot",
             "plot_label": "relu" if label == "relu" else label,
         }
-    if label == "qlogei-32":
+    if label in {"qlogei-32", "qConstrainedLogEHVI-without-feasible-check"}:
         return {
             "color": "orange",
             "marker": "P",
