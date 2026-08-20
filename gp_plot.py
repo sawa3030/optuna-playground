@@ -17,8 +17,11 @@ plot_target_over_time = optunahub.load_local_module(
     # "visualization/plot_target_over_time"
 ).plot_target_over_time
 
+MAX_PLOT_TRIALS = 50
+
+
 def trim_to_same_length(study_list: list[optuna.Study]) -> list[optuna.Study]:
-    min_len = min(len(study.trials) for study in study_list)
+    min_len = min(min(len(study.trials) for study in study_list), MAX_PLOT_TRIALS)
 
     trimmed = []
     for study in study_list:
@@ -36,7 +39,7 @@ def get_style(label: str) -> dict[str, str]:
             "marker": "*",
             "ls": "dotted",
             # "plot_label": "qLogEI (n_qmc_samples=512)",
-            "plot_label": "v5.0",
+            "plot_label": "v5.0 GPSampler",
         }
     elif label == "master" or label == "softplus" or label == "max" or label == "v4_9":
         return {
@@ -44,15 +47,15 @@ def get_style(label: str) -> dict[str, str]:
             "marker": "s",
             "ls": "dashed",
             # "plot_label": "master",
-            "plot_label": "v4.9",
+            "plot_label": "v4.9 GPSampler",
         }
-    elif label == "qlogei-128" or label == "relu":
+    elif label == "qlogei-128" or label == "relu" or label == "TPESampler":
         return {
             "color": "green",
             "marker": "D",
             "ls": "dashdot",
             # "plot_label": "qLogEI (n_qmc_samples=128)",
-            "plot_label": "relu",
+            "plot_label": "TPESampler",
         }
     elif label == "qlogei-32":
         return {
@@ -89,7 +92,7 @@ def build_plot_title(result_dir: Path) -> str:
     else:
         benchmark = "HPO"
 
-    return f"Benchmark: {benchmark}, Dataset ID: {dataset_id}"
+    return f"Benchmark: {benchmark}, Function ID: {dataset_id}"
 
 
 def main() -> None:

@@ -54,10 +54,11 @@ def simulate(
     # problem = Problem(dataset_id=dataset_id, metric_names=["val_acc"], seed=0)
     problem = Problem(function_id=dataset_id, dimension=2)
 
-    sampler = optuna.samplers.GPSampler(
-        n_startup_trials=n_startup_trials,
-        seed=seed,
-    )
+    # sampler = optuna.samplers.GPSampler(
+    #     n_startup_trials=n_startup_trials,
+    #     seed=seed,
+    # )
+    sampler = optuna.samplers.TPESampler(seed=seed)
     # sampler._q_acqf_n_qmc_samples = 128
     study = optuna.create_study(directions=problem.directions, sampler=sampler)
     start_time = time.perf_counter()
